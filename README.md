@@ -51,24 +51,14 @@ or toggle between two with no view at all.</p>
 running app, one at a time or all of them.</p>
 </td>
 </tr>
-<tr>
-<td valign="top">
-<img src="docs/screenshots/extension-reload-plugins.png" alt="Reload Plugins">
-<p><b>Reload Plugins</b>: rebuild native Swift plugins from source and restart OneCast so the new
-code loads.</p>
-</td>
-<td valign="top">
-<img src="docs/screenshots/extension-reload-dockwidgets.png" alt="Reload DockWidgets">
-<p><b>Reload DockWidgets</b>: copy widgets from <code>dockwidgets/</code> into OneCast, which
-recompiles them and swaps every live tile onto the new build.</p>
-</td>
-</tr>
 </table>
 
-And a few more that need an account or run without a view:
+And the rest:
 
 | Extension | What it does |
 |---|---|
+| **Reload Plugins** | Rebuilds native Swift plugins from source and restarts OneCast so the new code loads. |
+| **Reload DockWidgets** | Copies widgets from `dockwidgets/` into OneCast, which recompiles them and refreshes every live tile. |
 | **Copy Path** | Copies what the frontmost app points at: Finder's selection as paths, a browser's page URL. |
 | **Parse Text** | Cleans up the selected text (or the clipboard), starting with links a line-wrap split in two. |
 | **Fork Sync Status** | Checks whether your fork is in sync with its upstream, using the `gh` CLI. |
@@ -80,20 +70,18 @@ And a few more that need an account or run without a view:
 
 <table>
 <tr>
-<td width="33%" valign="top">
+<td width="50%" valign="top">
 <img src="docs/screenshots/plugin-stock-quotes.png" alt="Stock Quotes">
 <p><b>Stock Quotes</b>: live prices, charts, favourites and a watchlist.</p>
 </td>
-<td width="33%" valign="top">
+<td width="50%" valign="top">
 <img src="docs/screenshots/plugin-snake.png" alt="Snake">
 <p><b>Snake</b>: retro snake, right in the palette.</p>
 </td>
-<td width="33%" valign="top">
-<img src="docs/screenshots/plugin-hello.png" alt="Hello">
-<p><b>Hello</b>: a sample plugin showing the HUD, a live surface and drill-down lists.</p>
-</td>
 </tr>
 </table>
+
+`plugins/hello` is a small sample to start a new plugin from.
 
 ## 🧱 DockWidgets
 
@@ -105,8 +93,6 @@ And a few more that need an account or run without a view:
 **LeetCode**: a problem a day, with streaks, XP, freezes and badges. It picks a problem by your
 difficulty and topics (or takes the daily challenge), marks the day done once your solution is
 accepted, and reminds you through OneCast's scheduler until it is.
-
-**Hello**: a sample widget in compact and wide sizes, with one preference.
 
 </td>
 </tr>

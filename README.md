@@ -87,12 +87,17 @@ And the rest:
 
 <table>
 <tr>
-<td width="140" valign="top"><img src="docs/screenshots/dockwidget-leetcode.png" alt="LeetCode DockWidget" width="120"></td>
+<td width="300" valign="top"><img src="docs/screenshots/dockwidget-leetcode-detail.png" alt="The LeetCode DockWidget's detail view" width="280"></td>
 <td valign="top">
+
+<img src="docs/screenshots/dockwidget-leetcode.png" alt="The LeetCode tile in a dock" width="96">
 
 **LeetCode**: a problem a day, with streaks, XP, freezes and badges. It picks a problem by your
 difficulty and topics (or takes the daily challenge), marks the day done once your solution is
 accepted, and reminds you through OneCast's scheduler until it is.
+
+Click the tile for the detail view: today's problem, your level, sixteen weeks of history, badges
+and your LeetCode totals.
 
 </td>
 </tr>

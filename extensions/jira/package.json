@@ -1,0 +1,81 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "jira",
+  "title": "Jira",
+  "description": "Browse and search your Jira issues using a Personal Access Token.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["Developer Tools", "Productivity"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "list-issues",
+      "title": "List Jira Issues",
+      "subtitle": "Jira",
+      "description": "Show issues assigned to you / reported by you / watched / by custom JQL.",
+      "mode": "view"
+    },
+    {
+      "name": "open-issue",
+      "title": "Open Jira Issue in Browser",
+      "subtitle": "Jira",
+      "description": "Open the selected Jira issue key (e.g. DISE-19408) in your browser.",
+      "mode": "no-view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "baseURL",
+      "title": "Base URL",
+      "description": "Your Jira base URL, e.g. https://jira.example.com",
+      "type": "textfield",
+      "required": true,
+      "placeholder": "https://jira.corp.example.com"
+    },
+    {
+      "name": "token",
+      "title": "API Token (PAT)",
+      "description": "Personal Access Token used as a Bearer token in API calls.",
+      "type": "password",
+      "required": true
+    },
+    {
+      "name": "defaultJQL",
+      "title": "Default JQL",
+      "description": "Initial JQL used when the extension opens.",
+      "type": "textfield",
+      "required": false,
+      "default": "assignee = currentUser() ORDER BY updated DESC",
+      "placeholder": "assignee = currentUser() ORDER BY updated DESC"
+    },
+    {
+      "name": "maxResults",
+      "title": "Max Results",
+      "description": "Maximum number of issues to fetch per query (1–200).",
+      "type": "textfield",
+      "required": false,
+      "default": "50",
+      "placeholder": "50"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/list-issues.tsx src/open-issue.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}

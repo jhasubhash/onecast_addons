@@ -1,0 +1,6 @@
+{
+  "name": "Hello",
+  "identifier": "com.example.hello",
+  "subtitle": "A sample native plugin",
+  "icon": "hand.wave"
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "copy-path",
+  "title": "Copy Path",
+  "description": "Copy what the frontmost app is pointing at: Finder's selection as paths, a browser's page URL.",
+  "icon": "icon.png",
+  "author": "sujha",
+  "license": "MIT",
+  "platforms": ["macOS"],
+  "categories": ["Productivity", "System"],
+  "commands": [
+    {
+      "name": "copy-path",
+      "title": "Copy Path",
+      "subtitle": "Frontmost App",
+      "description": "Copy the selected files' paths from Finder, or the current page URL from a browser.",
+      "mode": "no-view",
+      "keywords": ["path", "url", "clipboard", "finder", "browser", "copy"]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "separator",
+      "title": "Multiple Items",
+      "description": "How several selected paths are joined.",
+      "type": "dropdown",
+      "required": false,
+      "default": "newline",
+      "data": [
+        { "title": "One per line", "value": "newline" },
+        { "title": "Space separated", "value": "space" },
+        { "title": "Comma separated", "value": "comma" }
+      ]
+    },
+    {
+      "name": "quotePaths",
+      "label": "Quote paths containing spaces",
+      "description": "Wrap a path in double quotes when it has a space, so it pastes into a shell as one argument.",
+      "type": "checkbox",
+      "required": false,
+      "default": false
+    }
+  ],
+  "scripts": {
+    "build": "esbuild src/copy-path.ts --outfile=copy-path.js --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh"
+  },
+  "devDependencies": {
+    "@raycast/api": "^1.103.2",
+    "esbuild": "^0.25.10",
+    "typescript": "^5.9.3"
+  }
+}

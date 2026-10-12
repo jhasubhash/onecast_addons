@@ -1,0 +1,85 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "news-search",
+  "title": "News Search",
+  "description": "Search top news articles from Google News, right from Raycast.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["News", "Web"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "search-news",
+      "title": "Search News",
+      "subtitle": "News Search",
+      "description": "Search top news articles via Google News RSS.",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "query",
+          "placeholder": "Search query",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "region",
+      "title": "Region & Language",
+      "description": "Google News region/locale combination.",
+      "type": "dropdown",
+      "required": false,
+      "default": "US:en",
+      "data": [
+        { "title": "United States (English)", "value": "US:en" },
+        { "title": "United Kingdom (English)", "value": "GB:en" },
+        { "title": "India (English)", "value": "IN:en" },
+        { "title": "Canada (English)", "value": "CA:en" },
+        { "title": "Australia (English)", "value": "AU:en" },
+        { "title": "Germany (German)", "value": "DE:de" },
+        { "title": "France (French)", "value": "FR:fr" },
+        { "title": "Japan (Japanese)", "value": "JP:ja" }
+      ]
+    },
+    {
+      "name": "maxResults",
+      "title": "Max Results",
+      "description": "Maximum number of articles to fetch (1–50).",
+      "type": "textfield",
+      "required": false,
+      "default": "25",
+      "placeholder": "25"
+    },
+    {
+      "name": "showThumbnails",
+      "title": "Show Thumbnails",
+      "label": "Show source logos next to each article",
+      "description": "Uses Clearbit logos with Google favicons as a fallback.",
+      "type": "checkbox",
+      "required": false,
+      "default": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/search-news.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}

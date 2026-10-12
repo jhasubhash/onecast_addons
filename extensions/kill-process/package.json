@@ -1,0 +1,72 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "kill-process",
+  "title": "Kill Process",
+  "description": "List what is running — apps, helpers and daemons — sorted by the memory or CPU it is costing you, and quit or force-kill it. Reads /bin/ps directly, shows each process under its owning app's icon, and tells you plainly when a process belongs to root and cannot be signalled without sudo.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["System"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "kill-process",
+      "title": "Kill Process",
+      "subtitle": "Activity Monitor",
+      "description": "Find a running process by name and quit or force-kill it.",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "scope",
+      "title": "Default Scope",
+      "description": "Which processes the list opens on. Apps are the ones with a window; Mine is every process running as you; All includes root and system daemons.",
+      "type": "dropdown",
+      "required": false,
+      "default": "apps",
+      "data": [
+        { "title": "Apps", "value": "apps" },
+        { "title": "Mine", "value": "mine" },
+        { "title": "All", "value": "all" }
+      ]
+    },
+    {
+      "name": "sort",
+      "title": "Default Sort",
+      "description": "Memory answers \"what is eating my RAM\"; CPU answers \"what is spinning my fans\". Toggle it in the list with ⌘S.",
+      "type": "dropdown",
+      "required": false,
+      "default": "memory",
+      "data": [
+        { "title": "Memory", "value": "memory" },
+        { "title": "CPU", "value": "cpu" }
+      ]
+    },
+    {
+      "name": "confirmForceKill",
+      "title": "Confirm Force Kill",
+      "description": "Ask before sending SIGKILL. A force-kill gives the process no chance to save, so this is on by default; plain Quit (SIGTERM) never asks.",
+      "type": "checkbox",
+      "label": "Ask before sending SIGKILL",
+      "required": false,
+      "default": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/kill-process.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

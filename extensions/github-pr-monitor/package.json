@@ -1,0 +1,109 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "github-pr-monitor",
+  "title": "GitHub PR Monitor",
+  "description": "Browse your open GitHub PRs and review requests using the gh CLI.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["Developer Tools"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "list-prs",
+      "title": "List GitHub PRs",
+      "subtitle": "GitHub PR Monitor",
+      "description": "Show your open PRs and review requests for a repository.",
+      "mode": "view",
+      "preferences": [
+        {
+          "name": "repo",
+          "title": "Include Repositories",
+          "description": "Comma-separated list of repos to include, in owner/name format (e.g. acme/api,acme/web). Supports wildcards: owner/* matches every repo under an owner, and * matches everything. Leave blank to search across all repos you can access.",
+          "type": "textfield",
+          "required": false,
+          "default": "",
+          "placeholder": "owner/repo,owner/*"
+        },
+        {
+          "name": "excludeRepo",
+          "title": "Exclude Repositories",
+          "description": "Comma-separated list of repos to exclude, in owner/name format. Supports wildcards: owner/* excludes every repo under an owner. Applied after Include Repositories.",
+          "type": "textfield",
+          "required": false,
+          "default": "",
+          "placeholder": "owner/archived,owner/legacy-*"
+        }
+      ]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "accounts",
+      "title": "GitHub Accounts",
+      "description": "Which gh CLI accounts to fetch PRs from. 'Active only' is fastest; 'All' fans out across every logged-in account in ~/.config/gh/hosts.yml.",
+      "type": "dropdown",
+      "required": false,
+      "default": "active",
+      "data": [
+        { "title": "Active account only (fast)", "value": "active" },
+        { "title": "All logged-in accounts", "value": "all" }
+      ]
+    },
+    {
+      "name": "ghPath",
+      "title": "gh CLI Path",
+      "description": "Optional absolute path to the gh executable. Leave empty for auto-detection.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "/opt/homebrew/bin/gh"
+    },
+    {
+      "name": "claudePath",
+      "title": "Claude CLI Path",
+      "description": "Optional absolute path to the claude executable used for PR reviews. Leave empty to resolve from PATH.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "/opt/homebrew/bin/claude"
+    },
+    {
+      "name": "reviewScript",
+      "title": "PR Review Script",
+      "description": "Optional absolute path to a shell script that performs the PR review. Receives the PR URL as $1 and the env vars PR_URL, PR_NUMBER, PR_REPO, PR_TITLE, PR_AUTHOR, PR_HOST, PR_ACCOUNT. If set, overrides the built-in claude invocation.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "/Users/me/bin/review-pr.sh"
+    },
+    {
+      "name": "reviewPrompt",
+      "title": "Claude Review Prompt",
+      "description": "Prompt passed to `claude -p` when no review script is set. Use {URL} as a placeholder for the PR URL.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "Review pull request {URL} and list findings, risks, and suggestions."
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/list-prs.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}

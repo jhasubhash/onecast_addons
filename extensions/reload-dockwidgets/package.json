@@ -1,0 +1,48 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "reload-dockwidgets",
+  "title": "Reload DockWidgets",
+  "description": "Install or refresh Onecast DockWidgets from their source folders; Onecast recompiles them and swaps every live dock tile onto the new build.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["Developer Tools"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "reload-dockwidget",
+      "title": "Reload DockWidgets",
+      "description": "Copy one DockWidget, or all of them, into Onecast so it rebuilds.",
+      "mode": "view",
+      "keywords": ["onecast", "dock", "widget", "dockwidget", "swift", "rebuild", "install", "reload"]
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/reload-dockwidget.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "preferences": [
+    {
+      "name": "widgetsRoot",
+      "title": "DockWidgets Folder",
+      "description": "The folder holding DockWidget source subdirectories (each a manifest.json with Swift sources beside it).",
+      "type": "textfield",
+      "required": false,
+      "default": "~/Developer/onecast_addons/dockwidgets"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "slack-status",
+  "title": "Slack Status",
+  "description": "Set or clear your Slack status from Raycast with presets, custom emoji, text, and an expiration timer.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["Communication", "Productivity"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "set-status",
+      "title": "Set Slack Status",
+      "subtitle": "Slack",
+      "description": "Choose a preset, set a custom status, or clear your current Slack status.",
+      "mode": "view"
+    },
+    {
+      "name": "clear-status",
+      "title": "Clear Slack Status",
+      "subtitle": "Slack",
+      "description": "Clear your current Slack status immediately.",
+      "mode": "no-view"
+    },
+    {
+      "name": "set-profile-photo-main",
+      "title": "Set Profile Picture: Main",
+      "subtitle": "Slack",
+      "description": "Set your Slack profile picture to a random image from the Main set, and keep it as the steady-state photo until Fun is set instead.",
+      "mode": "no-view"
+    },
+    {
+      "name": "set-profile-photo-fun",
+      "title": "Set Profile Picture: Fun",
+      "subtitle": "Slack",
+      "description": "Set your Slack profile picture to a random image from the Fun set, and keep it as the steady-state photo until Main is set instead.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-afk",
+      "title": "Set Status: Away from Keyboard",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to Away from Keyboard (:tea:) for 15 minutes.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-lunch",
+      "title": "Set Status: Lunch",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to Lunch (:hamburger:) for 45 minutes.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-ooo",
+      "title": "Set Status: Out of Office",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to Out of Office (:palm_tree:) for 1 day.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-sick",
+      "title": "Set Status: Out Sick",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to Out Sick (:face_with_thermometer:) for 1 day.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-pto",
+      "title": "Set Status: On PTO Today",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to On PTO Today (:red_circle:) for 1 day.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-vacation",
+      "title": "Set Status: On Vacation",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to On Vacation (:airplane:) with no expiration.",
+      "mode": "no-view"
+    },
+    {
+      "name": "status-oncall",
+      "title": "Set Status: On Call",
+      "subtitle": "Slack",
+      "description": "Set your Slack status to On Call (:telephone_receiver:); auto-clears at 8:30 PM IST.",
+      "mode": "no-view"
+    },
+    {
+      "name": "restore-photo",
+      "title": "Restore Profile Photo After Status Expiry",
+      "subtitle": "Slack",
+      "description": "Background check that restores your day-of-week profile photo after a Lunch, PTO, Sick, or On Call status expires.",
+      "mode": "no-view",
+      "interval": "1m"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "token",
+      "title": "Slack User Token",
+      "description": "A Slack user OAuth token (xoxp-…) with users.profile:write and users.profile:read scopes.",
+      "type": "password",
+      "required": true
+    },
+    {
+      "name": "presetsJSON",
+      "title": "Presets (JSON)",
+      "description": "Optional JSON array overriding the built-in presets. Each item: { \"emoji\": \":coffee:\", \"text\": \"Coffee Break\", \"minutes\": 15 }. Leave empty to use defaults.",
+      "type": "textfield",
+      "required": false,
+      "default": ""
+    },
+    {
+      "name": "syncProfilePhoto",
+      "title": "Profile Photo",
+      "label": "Sync profile photo with status",
+      "description": "When on, setting a Lunch status switches your Slack photo to a random lunch photo, and any other status (or clearing) restores the day-of-week photo.",
+      "type": "checkbox",
+      "required": false,
+      "default": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/set-status.tsx src/clear-status.tsx src/set-profile-photo-main.tsx src/set-profile-photo-fun.tsx src/status-afk.tsx src/status-lunch.tsx src/status-ooo.tsx src/status-sick.tsx src/status-pto.tsx src/status-vacation.tsx src/status-oncall.tsx src/restore-photo.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "reload-extensions",
+  "title": "Reload Extensions",
+  "description": "Rebuild a Onecast extension from its source folder and install it into the running app.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": [
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "reload-extension",
+      "title": "Reload Extensions",
+      "description": "Pick a local extension to rebuild and install, or rebuild all.",
+      "mode": "view",
+      "keywords": [
+        "onecast",
+        "rebuild",
+        "build",
+        "install",
+        "develop"
+      ]
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/reload-extension.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "preferences": [
+    {
+      "name": "extensionsRoot",
+      "title": "Extensions Folder",
+      "description": "The folder holding one source extension per subdirectory.",
+      "type": "textfield",
+      "required": false,
+      "default": "~/Developer/onecast_addons/extensions"
+    }
+  ]
+}

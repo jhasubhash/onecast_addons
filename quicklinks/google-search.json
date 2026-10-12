@@ -1,0 +1,14 @@
+{
+  "quicklinks": [
+    {
+      "createdAt": "2026-09-12T00:00:00Z",
+      "iconSymbol": "magnifyingglass",
+      "id": "22BEEB73-179C-5FCD-9CE3-906C28D2AC71",
+      "isEnabled": true,
+      "link": "https://www.google.com/search?q={argument}",
+      "name": "Search Google",
+      "showsInRootSearch": false
+    }
+  ],
+  "version": 1
+}

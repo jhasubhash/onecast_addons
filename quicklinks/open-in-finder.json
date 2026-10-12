@@ -1,0 +1,15 @@
+{
+  "quicklinks": [
+    {
+      "createdAt": "2026-09-12T00:00:00Z",
+      "iconSymbol": "folder",
+      "id": "0BDA566C-B78C-57D8-8DFE-092A3EBD6884",
+      "isEnabled": true,
+      "link": "{argument}",
+      "name": "Open in Finder",
+      "openWithBundleID": "com.apple.finder",
+      "showsInRootSearch": false
+    }
+  ],
+  "version": 1
+}

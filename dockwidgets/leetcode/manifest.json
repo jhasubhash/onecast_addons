@@ -1,0 +1,88 @@
+{
+  "name": "LeetCode",
+  "identifier": "com.sujha.dockwidget.leetcode",
+  "subtitle": "A problem a day, with streaks",
+  "icon": "flame",
+  "category": "Productivity",
+  "sizes": ["compact", "wide", "expanded"],
+  "module": "LeetCodeDockWidget",
+  "preferences": [
+    {
+      "name": "username",
+      "title": "LeetCode username",
+      "description": "Optional. Lets the widget spot your accepted solution and mark the day done by itself, skip problems you solved recently, and show your profile totals.",
+      "type": "textfield",
+      "placeholder": "your-handle"
+    },
+    {
+      "name": "session",
+      "title": "Session cookie",
+      "description": "Optional. The LEETCODE_SESSION cookie from leetcode.com, so every problem you have ever solved is skipped, not just recent ones. Stored in Onecast's preferences in plain text.",
+      "type": "textfield",
+      "placeholder": "LEETCODE_SESSION value"
+    },
+    {
+      "name": "source",
+      "title": "Problem source",
+      "description": "A random problem matching your difficulty and topics, or LeetCode's official daily challenge.",
+      "type": "dropdown",
+      "default": "pick",
+      "options": [
+        {"title": "Pick for me", "value": "pick"},
+        {"title": "LeetCode daily challenge", "value": "daily"}
+      ]
+    },
+    {
+      "name": "difficulty",
+      "title": "Difficulty",
+      "description": "Also editable from the popover's preferences panel.",
+      "type": "dropdown",
+      "default": "any",
+      "options": [
+        {"title": "Any", "value": "any"},
+        {"title": "Easy", "value": "easy"},
+        {"title": "Medium", "value": "medium"},
+        {"title": "Hard", "value": "hard"},
+        {"title": "Easy + Medium", "value": "easy,medium"},
+        {"title": "Medium + Hard", "value": "medium,hard"},
+        {"title": "Easy + Hard", "value": "easy,hard"}
+      ]
+    },
+    {
+      "name": "topics",
+      "title": "Topics",
+      "description": "Comma-separated LeetCode tag slugs (e.g. dynamic-programming, graph). Each day uses one at random. Empty means any. Easier to pick from the popover.",
+      "type": "textfield",
+      "placeholder": "dynamic-programming, graph"
+    },
+    {
+      "name": "includePaid",
+      "title": "Include Premium problems",
+      "type": "checkbox",
+      "default": false
+    },
+    {
+      "name": "reminder",
+      "title": "Daily reminder",
+      "description": "Posts a Onecast notification at the reminder time, unless today is already solved. Listed under Settings → Scheduler → From plugins and widgets.",
+      "type": "checkbox",
+      "default": true
+    },
+    {
+      "name": "reminderTime",
+      "title": "Reminder time (HH:mm)",
+      "description": "24-hour time, e.g. 20:00 or 7:30.",
+      "type": "textfield",
+      "placeholder": "20:00",
+      "default": "20:00"
+    },
+    {
+      "name": "nudgeHour",
+      "title": "Nudge from (hour, 0–23)",
+      "description": "From this hour on, an unsolved day makes the tile pulse red.",
+      "type": "textfield",
+      "placeholder": "18",
+      "default": 18
+    }
+  ]
+}

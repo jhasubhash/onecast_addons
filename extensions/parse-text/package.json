@@ -1,0 +1,32 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "parse-text",
+  "title": "Parse Text",
+  "description": "Parse and transform the selected text (or the clipboard, if nothing is selected). Currently unwraps links that a line-wrap split across lines; more text transforms to come.",
+  "icon": "icon.png",
+  "author": "sujha",
+  "license": "MIT",
+  "platforms": ["macOS"],
+  "categories": ["Productivity"],
+  "commands": [
+    {
+      "name": "parse-text",
+      "title": "Parse Text",
+      "subtitle": "Selection or Clipboard",
+      "description": "Parse the current selection, or the clipboard when nothing is selected. When the text is a URL wrapped across lines, join it back into a single line first.",
+      "mode": "no-view",
+      "keywords": ["link", "url", "clipboard", "copy", "unwrap", "newline", "selection"]
+    }
+  ],
+  "scripts": {
+    "build": "esbuild src/parse-text.ts --outfile=parse-text.js --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh"
+  },
+  "devDependencies": {
+    "@raycast/api": "^1.103.2",
+    "esbuild": "^0.25.10",
+    "typescript": "^5.9.3"
+  }
+}

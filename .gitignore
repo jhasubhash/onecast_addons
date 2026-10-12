@@ -1,0 +1,23 @@
+# Dependencies — every extension carries its own, restored from its package-lock.json.
+node_modules/
+
+# Build output: esbuild writes one <command>.js beside each manifest, named after the command.
+# Sources live in extensions/<name>/src/, so this never matches anything hand-written.
+extensions/*/*.js
+
+# Installed copies are Onecast's, under ~/Library/Application Support — nothing lands here.
+
+# macOS
+.DS_Store
+.AppleDouble
+Icon?
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Logs and scratch
+*.log
+.env
+.env.*

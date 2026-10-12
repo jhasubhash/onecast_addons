@@ -1,0 +1,91 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "gh-account-switcher",
+  "title": "GitHub Account Switcher",
+  "description": "Quickly switch the active gh CLI account across hosts (github.com, GHES).",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["Developer Tools"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "switch-account",
+      "title": "Switch GitHub Account",
+      "subtitle": "gh CLI",
+      "description": "List all gh CLI accounts and switch the active one per host.",
+      "mode": "view"
+    },
+    {
+      "name": "toggle-account",
+      "title": "Toggle GitHub Account",
+      "subtitle": "gh CLI",
+      "description": "Cycle to the next gh CLI account on github.com (no UI).",
+      "mode": "no-view"
+    },
+    {
+      "name": "show-active-account",
+      "title": "Show Active GitHub Account",
+      "subtitle": "gh CLI",
+      "description": "Show the currently active gh CLI account per host as a HUD.",
+      "mode": "no-view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "ghPath",
+      "title": "gh CLI Path",
+      "description": "Optional absolute path to the gh executable. Leave empty for auto-detection.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "/opt/homebrew/bin/gh"
+    },
+    {
+      "name": "toggleHost",
+      "title": "Toggle Host",
+      "description": "Host used by the 'Toggle GitHub Account' command when cycling accounts.",
+      "type": "textfield",
+      "required": false,
+      "default": "github.com",
+      "placeholder": "github.com"
+    },
+    {
+      "name": "sshKeyMap",
+      "title": "SSH Key Map",
+      "description": "Optional. Mappings separated by ';' (or ','). Each mapping: 'host:user=/path/to/key' (or 'user=/path/to/key'). Use ~ for home. Example: github.com:work-user=~/.ssh/id_ed25519;github.com:jhasubhash=~/.ssh/id_ed25519_personal",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "github.com:user1=~/.ssh/key1;github.com:user2=~/.ssh/key2"
+    },
+    {
+      "name": "sshConfigPath",
+      "title": "SSH Config Path",
+      "description": "Optional override for the SSH config file. Defaults to ~/.ssh/config.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "~/.ssh/config"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/switch-account.tsx src/toggle-account.tsx src/show-active-account.tsx --outdir=. --bundle --format=cjs --platform=node --target=es2022 --jsx=automatic --external:react --external:react/jsx-runtime --external:react/jsx-dev-runtime --external:react-dom --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Hello",
+  "identifier": "com.example.dockwidget.hello",
+  "subtitle": "A sample DockWidget",
+  "icon": "hand.wave",
+  "category": "Examples",
+  "sizes": ["compact", "wide"],
+  "module": "HelloDockWidget",
+  "preferences": [
+    {
+      "name": "greeting",
+      "title": "Greeting",
+      "description": "Shown on the wide tile and in the popover.",
+      "type": "textfield",
+      "placeholder": "Hello",
+      "default": "Hello"
+    }
+  ]
+}

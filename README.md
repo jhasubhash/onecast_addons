@@ -72,12 +72,21 @@ And the rest:
 <tr>
 <td width="50%" valign="top">
 <img src="docs/screenshots/plugin-stock-quotes.png" alt="Stock Quotes">
-<p><b>Stock Quotes</b>: live prices, charts, favourites and a watchlist.</p>
+<p><b>Stock Quotes</b>: search any stock, fund or coin, star your favourites, and keep the recent
+ones a keystroke away.</p>
 </td>
 <td width="50%" valign="top">
+<img src="docs/screenshots/plugin-stock-quotes-detail.png" alt="A stock's detail view in Stock Quotes">
+<p>Open one for its chart from one day to all time, with the open, high, low, market cap, P/E and
+52-week range.</p>
+</td>
+</tr>
+<tr>
+<td valign="top">
 <img src="docs/screenshots/plugin-snake.png" alt="Snake">
 <p><b>Snake</b>: retro snake, right in the palette.</p>
 </td>
+<td></td>
 </tr>
 </table>
 

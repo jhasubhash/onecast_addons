@@ -121,6 +121,13 @@ and your LeetCode totals.
 
 ## Build & install
 
+First, OneCast itself:
+
+```sh
+brew install --cask jhasubhash/tap/onecast            # Apple silicon
+brew install --cask jhasubhash/tap/onecast-universal  # Intel
+```
+
 **Extensions** need a build step: restore the dependencies and bundle each command.
 
 ```sh

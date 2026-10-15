@@ -33,6 +33,20 @@
       ]
     },
     {
+      "name": "dailyGoal",
+      "title": "Problems per day",
+      "description": "How many problems to solve each day. Once one is solved the next appears, until the day's count is met. Any solve keeps the streak alive.",
+      "type": "dropdown",
+      "default": "1",
+      "options": [
+        {"title": "1", "value": "1"},
+        {"title": "2", "value": "2"},
+        {"title": "3", "value": "3"},
+        {"title": "4", "value": "4"},
+        {"title": "5", "value": "5"}
+      ]
+    },
+    {
       "name": "difficulty",
       "title": "Difficulty",
       "description": "Also editable from the popover's preferences panel.",

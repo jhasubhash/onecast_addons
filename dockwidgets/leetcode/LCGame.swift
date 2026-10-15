@@ -2,35 +2,61 @@ import Foundation
 
 // MARK: - State
 
-/// One calendar day. A day exists once a problem is assigned to it, or when a streak freeze covers
-/// it.
-struct LCDay: Codable, Equatable {
-    var problem: LCProblem?
-    var solvedAt: Date?
-    /// A streak freeze bridged this day: it keeps the streak alive without adding to it.
-    var frozen = false
-    var skips = 0
+/// One problem solved on a day, with the XP it earned.
+struct LCSolvedProblem: Codable, Equatable {
+    var problem: LCProblem
+    var solvedAt: Date
     var xp = 0
     /// Marked by the widget on seeing an accepted submission, not by hand.
     var auto = false
+}
 
-    var solved: Bool { solvedAt != nil }
+/// One calendar day. A day exists once a problem is assigned to it, or when a streak freeze covers
+/// it.
+struct LCDay: Codable, Equatable {
+    /// The problem being worked on; nil once the day's goal is met.
+    var problem: LCProblem?
+    /// Problems solved this day, oldest first.
+    var solves: [LCSolvedProblem] = []
+    /// A streak freeze bridged this day: it keeps the streak alive without adding to it.
+    var frozen = false
+    var skips = 0
+
+    /// One solve keeps the streak; the daily goal only decides when the day is done.
+    var solved: Bool { !solves.isEmpty }
     /// Whether this day keeps a streak going.
     var counts: Bool { solved || frozen }
+    var xp: Int { solves.reduce(0) { $0 + $1.xp } }
+    var hardest: Difficulty? { solves.map(\.problem.difficulty).max { $0.xp < $1.xp } }
 
     init(problem: LCProblem? = nil, frozen: Bool = false) {
         self.problem = problem
         self.frozen = frozen
     }
 
+    private enum CodingKeys: String, CodingKey { case problem, solves, frozen, skips, solvedAt, xp, auto }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         problem = try c.decodeIfPresent(LCProblem.self, forKey: .problem)
-        solvedAt = try c.decodeIfPresent(Date.self, forKey: .solvedAt)
+        solves = try c.decodeIfPresent([LCSolvedProblem].self, forKey: .solves) ?? []
         frozen = try c.decodeIfPresent(Bool.self, forKey: .frozen) ?? false
         skips = try c.decodeIfPresent(Int.self, forKey: .skips) ?? 0
-        xp = try c.decodeIfPresent(Int.self, forKey: .xp) ?? 0
-        auto = try c.decodeIfPresent(Bool.self, forKey: .auto) ?? false
+        // Files from the one-problem-a-day version kept the solve on the day itself.
+        if solves.isEmpty, let p = problem, let at = try c.decodeIfPresent(Date.self, forKey: .solvedAt) {
+            solves = [LCSolvedProblem(problem: p, solvedAt: at,
+                              xp: try c.decodeIfPresent(Int.self, forKey: .xp) ?? 0,
+                              auto: try c.decodeIfPresent(Bool.self, forKey: .auto) ?? false)]
+            problem = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(problem, forKey: .problem)
+        try c.encode(solves, forKey: .solves)
+        try c.encode(frozen, forKey: .frozen)
+        try c.encode(skips, forKey: .skips)
     }
 }
 
@@ -214,23 +240,23 @@ struct Badge: Identifiable {
 
     static let all: [Badge] = [
         Badge(id: "first", name: "First Blood", symbol: "flag.checkered", detail: "Solve your first problem") { s, _, _ in
-            solvedDays(s) >= 1
+            solvedProblems(s) >= 1
         },
         Badge(id: "streak3", name: "Warming Up", symbol: "flame", detail: "3-day streak") { _, n, _ in n >= 3 },
         Badge(id: "streak7", name: "On Fire", symbol: "flame.fill", detail: "7-day streak") { _, n, _ in n >= 7 },
         Badge(id: "streak30", name: "Unstoppable", symbol: "bolt.fill", detail: "30-day streak") { _, n, _ in n >= 30 },
         Badge(id: "streak100", name: "Centurion", symbol: "crown.fill", detail: "100-day streak") { _, n, _ in n >= 100 },
         Badge(id: "hard", name: "Hard Hitter", symbol: "dumbbell.fill", detail: "Solve a Hard problem") { s, _, _ in
-            s.days.values.contains { $0.solved && $0.problem?.difficulty == .hard }
+            s.days.values.contains { $0.solves.contains { $0.problem.difficulty == .hard } }
         },
         Badge(id: "solved10", name: "Ten Down", symbol: "10.circle.fill", detail: "Solve 10 daily problems") { s, _, _ in
-            solvedDays(s) >= 10
+            solvedProblems(s) >= 10
         },
         Badge(id: "solved50", name: "Half Century", symbol: "star.fill", detail: "Solve 50 daily problems") { s, _, _ in
-            solvedDays(s) >= 50
+            solvedProblems(s) >= 50
         },
         Badge(id: "solved100", name: "Triple Digits", symbol: "trophy.fill", detail: "Solve 100 daily problems") { s, _, _ in
-            solvedDays(s) >= 100
+            solvedProblems(s) >= 100
         },
         Badge(id: "early", name: "Early Bird", symbol: "sunrise.fill", detail: "Solve before 8 am") { _, _, at in
             Day.calendar.component(.hour, from: at) < 8
@@ -243,7 +269,7 @@ struct Badge: Identifiable {
         },
     ]
 
-    static func solvedDays(_ s: LCState) -> Int { s.days.values.filter(\.solved).count }
+    static func solvedProblems(_ s: LCState) -> Int { s.days.values.reduce(0) { $0 + $1.solves.count } }
 
     /// Consecutive solved days, newest first, on which no problem was skipped.
     private static func noSkipRun(_ s: LCState) -> Int {

@@ -19,12 +19,15 @@ is done; clicking it opens the problem, a link to solve it, and everything you h
 3. When you've solved it, press **Solved**. With a **username** set you needn't: every five minutes
    the widget checks your recent accepted submissions, and an accepted solution to today's problem
    submitted today marks the day done by itself ("Spotted your solve").
-4. Once the day is done the tile stops nagging (green check) until tomorrow.
+4. With **Problems per day** above 1, solving one brings up the next straight away (the tile shows
+   `1/3`), until the day's count is met. Every solve earns XP; the first one is enough to keep the
+   streak. **Undo** takes back the last solve and returns to that problem.
+5. Once the day is done the tile stops nagging (green check) until tomorrow.
 
 ## Daily reminder
 
 At the **reminder time** (default 20:00) Onecast posts one of its own notification cards, unless
-today is already solved, in which case nothing appears. The card names your streak and today's
+today's goal is already met, in which case nothing appears. The card names your streak and today's
 problem and has three buttons: **Open** (opens the problem), **Solved** (marks the day done) and
 **In 1 hour** (snoozes it). Solving the day from the popover, or the widget spotting your solve,
 takes down a card that is still up.
@@ -39,13 +42,13 @@ that has DockWidget host services.
 
 | Mechanic | Rule |
 | --- | --- |
-| **Streak** | Consecutive days solved. Today being open doesn't break it; missing a whole day does. |
+| **Streak** | Consecutive days with at least one solve. Today being open doesn't break it; missing a whole day does. |
 | **XP** | Easy 10, Medium 25, Hard 50, plus 10% per streak day, capped at double. |
 | **Levels** | Level *n* starts at 50·n·(n−1) XP (0, 100, 300, 600, 1000 …), titled Novice → Legend. |
 | **Streak freezes** | One earned every 7 streak days (holding at most 2). A missed day is covered automatically if you have enough freezes for *every* missed day; frozen days keep the streak but don't add to it. |
 | **Skips** | Three a day. A skipped problem is never suggested again. Skipping on a 7-day run voids *No Excuses*. |
 | **Badges** | First Blood, Warming Up (3), On Fire (7), Unstoppable (30), Centurion (100), Hard Hitter, Ten Down, Half Century, Triple Digits, Early Bird (before 8 am), Night Owl (after 11 pm), No Excuses. |
-| **Nudge** | From the nudge hour (default 18:00) an unsolved day pulses red on the tile, and the popover warns when a streak is at risk. |
+| **Nudge** | From the nudge hour (default 18:00) a day short of its goal pulses red on the tile, and the popover warns when a streak is at risk. |
 
 **Undo** takes back the day's XP; best streak and badges stay, since they were earned at the time.
 
@@ -71,6 +74,7 @@ LeetCode report each problem's status.
 | --- | --- |
 | LeetCode username | Optional. Auto-detects solves, excludes recent solves, shows your profile totals in the popover. Public data, no sign-in. |
 | Session cookie | Optional. The `LEETCODE_SESSION` cookie (DevTools → Application → Cookies → leetcode.com); a whole `Cookie:` string works too. Stored in Onecast's preferences in **plain text**. It expires every few weeks; when it does, picks just stop excluding older solves. |
+| Problems per day | 1–5 (default 1). Also a stepper in the popover's preferences panel. With the daily challenge as source, only the first problem is the challenge; the rest are picked. |
 | Problem source | Pick for me / LeetCode daily challenge. |
 | Difficulty, Topics | As above. Topics are tag slugs such as `dynamic-programming`, `graph`, `sliding-window`. |
 | Include Premium problems | Off by default. |

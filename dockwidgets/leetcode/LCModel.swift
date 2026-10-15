@@ -16,6 +16,8 @@ final class LCModel {
         var difficulties: [Difficulty] = []
         var topics: [String] = []
         var includePaid = false
+        /// Problems to solve each day; the next is assigned as each one is solved.
+        var goal = 1
         var nudgeHour = 18
         /// The daily reminder's time, or nil when reminders are off.
         var reminder: Reminder?
@@ -68,9 +70,15 @@ final class LCModel {
 
     // MARK: Derived
 
+    static let maxGoal = 5
+
     var day: LCDay? { state.days[today] }
-    var problem: LCProblem? { day?.problem }
-    var done: Bool { day?.solved ?? false }
+    /// The problem being worked on, nil between solves and once the day is done.
+    var current: LCProblem? { day?.problem }
+    /// What the tile shows: the current problem, or the last one solved once the day is done.
+    var problem: LCProblem? { done ? day?.solves.last?.problem : current }
+    var solvedToday: Int { day?.solves.count ?? 0 }
+    var done: Bool { solvedToday >= config.goal }
     var streak: Int { Game.streak(state, today: today) }
     var skipsLeft: Int { max(0, Game.skipsPerDay - (day?.skips ?? 0)) }
     var level: (level: Int, into: Int, span: Int) { Game.level(state.xp) }
@@ -81,8 +89,11 @@ final class LCModel {
         !done && Day.calendar.component(.hour, from: now) >= config.nudgeHour
     }
 
-    /// The streak is alive but ends tonight unless today is solved.
-    var atRisk: Bool { !done && streak > 0 }
+    /// The streak is alive but ends tonight unless a problem is solved today.
+    var atRisk: Bool { solvedToday == 0 && streak > 0 }
+
+    /// The daily challenge is one problem, so every problem after the day's first is a pick.
+    private var nextSource: Source { solvedToday == 0 ? config.source : .pick }
 
     // MARK: Settings
 
@@ -106,6 +117,7 @@ final class LCModel {
             difficulties: Self.difficulties(p.string("difficulty")),
             topics: Self.topics(p.string("topics")),
             includePaid: p.bool("includePaid"),
+            goal: min(Self.maxGoal, max(1, p.integer("dailyGoal") ?? 1)),
             nudgeHour: min(23, max(0, p.integer("nudgeHour") ?? 18)),
             reminder: p.bool("reminder") ? Self.reminder(p.string("reminderTime")) : nil)
         let old = config
@@ -165,6 +177,11 @@ final class LCModel {
         reloadConfig()
     }
 
+    func setGoal(_ n: Int) {
+        prefs?.set(String(min(Self.maxGoal, max(1, n))), for: "dailyGoal")
+        reloadConfig()
+    }
+
     func setSource(_ s: Source) {
         prefs?.set(s.rawValue, for: "source")
         reloadConfig()
@@ -172,27 +189,32 @@ final class LCModel {
 
     // MARK: Actions
 
-    /// Marks today's problem solved, awards XP, badges and maybe a freeze.
+    /// Marks the current problem solved, awards XP, badges and maybe a freeze, then assigns the
+    /// next one until the daily goal is met.
     func markSolved(at: Date = Date(), auto: Bool = false) {
+        let goal = config.goal
         mutate { s in
-            guard var d = s.days[today], d.problem != nil, !d.solved else { return }
-            d.solvedAt = at
-            d.auto = auto
+            guard var d = s.days[today], let p = d.problem else { return }
+            let first = !d.solved
+            d.problem = nil
+            d.solves.append(LCSolvedProblem(problem: p, solvedAt: at, auto: auto))
             s.days[today] = d
             let n = Game.streak(s, today: today)
-            let gained = Game.xp(for: d.problem!.difficulty, streak: n)
-            d.xp = gained
+            let gained = Game.xp(for: p.difficulty, streak: n)
+            d.solves[d.solves.count - 1].xp = gained
             s.days[today] = d
             s.xp += gained
-            s.solved.insert(d.problem!.slug)
-            let newRecord = n > s.bestStreak
-            s.bestStreak = max(s.bestStreak, n)
+            s.solved.insert(p.slug)
 
             var lines = ["+\(gained) XP" + (n > 1 ? " · \(n)-day streak" : "")]
-            if newRecord && n > 1 { lines.append("New best streak!") }
-            if n % Game.freezeEvery == 0 && s.freezes < Game.maxFreezes {
-                s.freezes += 1
-                lines.append("Earned a streak freeze ❄︎")
+            // Streak records and freezes follow days, so only the day's first solve earns them.
+            if first {
+                if n > s.bestStreak && n > 1 { lines.append("New best streak!") }
+                s.bestStreak = max(s.bestStreak, n)
+                if n % Game.freezeEvery == 0 && s.freezes < Game.maxFreezes {
+                    s.freezes += 1
+                    lines.append("Earned a streak freeze ❄︎")
+                }
             }
             let before = Game.level(s.xp - gained).level
             let after = Game.level(s.xp).level
@@ -201,24 +223,29 @@ final class LCModel {
                 s.badges[b.id] = at
                 lines.append("Badge: \(b.name)")
             }
-            celebration = Celebration(
-                title: auto ? "Spotted your solve — done for today!" : "Done for today!", lines: lines)
+            let count = d.solves.count
+            let title = count < goal
+                ? (auto ? "Spotted your solve — \(count) of \(goal) done" : "\(count) of \(goal) done — next one's up")
+                : (auto ? "Spotted your solve — done for today!" : "Done for today!")
+            celebration = Celebration(title: title, lines: lines)
         }
-        if done { withdrawReminder() }
+        if done { withdrawReminder() } else { assign(source: .pick) }
     }
 
+    /// Takes back the last solve of the day and makes its problem current again.
     func undoSolved() {
+        pickTask?.cancel()
+        pickTask = nil
+        picking = false
         mutate { s in
-            guard var d = s.days[today], d.solved else { return }
-            s.xp = max(0, s.xp - d.xp)
-            if let slug = d.problem?.slug,
-               !s.days.contains(where: { $0.key != today && $0.value.solved && $0.value.problem?.slug == slug }) {
+            guard var d = s.days[today], let last = d.solves.popLast() else { return }
+            s.xp = max(0, s.xp - last.xp)
+            d.problem = last.problem
+            s.days[today] = d
+            let slug = last.problem.slug
+            if !s.days.values.contains(where: { $0.solves.contains { $0.problem.slug == slug } }) {
                 s.solved.remove(slug)
             }
-            d.solvedAt = nil
-            d.xp = 0
-            d.auto = false
-            s.days[today] = d
             // Best streak and badges stay: they were earned at the time.
         }
         celebration = nil
@@ -227,7 +254,7 @@ final class LCModel {
     /// Replaces today's problem with a fresh pick, up to `Game.skipsPerDay` times.
     func skip() {
         guard !done, skipsLeft > 0 else { return }
-        if let slug = problem?.slug {
+        if let slug = current?.slug {
             mutate { s in
                 s.skipped.append(slug)
                 if s.skipped.count > 1000 { s.skipped.removeFirst(s.skipped.count - 1000) }
@@ -243,13 +270,13 @@ final class LCModel {
     func refreshOnOpen() {
         state = LCStore.load()
         lastSolveCheck = .distantPast
-        if problem == nil { pickError = nil }
+        if current == nil { pickError = nil }
         startLoop()
     }
 
     func retry() {
         pickError = nil
-        assign(force: true, source: config.source)
+        assign(force: true, source: nextSource)
     }
 
     // MARK: Reminder
@@ -280,10 +307,11 @@ final class LCModel {
         state = LCStore.load()
         guard !done, let services else { return }
         withdrawReminder()
-        let title = streak > 0 ? "Keep your \(streak)-day streak alive 🔥" : "Time for today's LeetCode"
-        let body = problem.map { "\($0.title) · \($0.difficulty.rawValue)" } ?? "Your daily problem is waiting."
+        let title = solvedToday > 0 ? "\(solvedToday) of \(config.goal) solved — keep going"
+            : streak > 0 ? "Keep your \(streak)-day streak alive 🔥" : "Time for today's LeetCode"
+        let body = current.map { "\($0.title) · \($0.difficulty.rawValue)" } ?? "Your daily problem is waiting."
         var buttons = [OnecastNotificationAction(id: "snooze", title: "In 1 hour")]
-        if problem != nil {
+        if current != nil {
             buttons.insert(OnecastNotificationAction(id: "solved", title: "Solved"), at: 0)
             buttons.insert(OnecastNotificationAction(id: "open", title: "Open"), at: 0)
         }
@@ -297,7 +325,7 @@ final class LCModel {
         withdrawReminder()
         switch action {
         case "open":
-            if let url = problem?.url { actions?.openURL(url) }
+            if let url = current?.url { actions?.openURL(url) }
         case "solved":
             markSolved()
         case "snooze":
@@ -317,9 +345,9 @@ final class LCModel {
 
     // MARK: Assignment
 
-    /// Gives today a problem if it has none. `force` replaces the current one.
+    /// Gives today a problem if it has none and the goal isn't met. `force` replaces the current one.
     private func assign(force: Bool = false, source: Source) {
-        if !force, problem != nil { return }
+        if !force, current != nil || done { return }
         if pickTask != nil && !force { return }
         pickTask?.cancel()
         picking = true
@@ -342,8 +370,8 @@ final class LCModel {
                 guard !Task.isCancelled, let self else { return }
                 self.mutate { s in
                     var d = s.days[forDay] ?? LCDay()
-                    // Solved meanwhile, or another tile already gave the day a problem.
-                    guard !d.solved, force || d.problem == nil else { return }
+                    // Goal met meanwhile, or another tile already gave the day a problem.
+                    guard d.solves.count < cfg.goal, force || d.problem == nil else { return }
                     d.problem = p
                     s.days[forDay] = d
                 }
@@ -390,7 +418,7 @@ final class LCModel {
                     lines: ["Used \(spent) streak freeze\(spent == 1 ? "" : "s") for the day\(spent == 1 ? "" : "s") you missed."])
             }
         }
-        if problem == nil && pickError == nil { assign(source: config.source) }
+        if current == nil && !done && pickError == nil { assign(source: nextSource) }
         await checkUser()
     }
 
@@ -405,7 +433,7 @@ final class LCModel {
                 recentSolved = Set(solves.map(\.slug))
                 userError = nil
                 let start = Day.calendar.startOfDay(for: Date())
-                if !done, let slug = problem?.slug,
+                if !done, let slug = current?.slug,
                    let hit = solves.first(where: { $0.slug == slug && $0.at >= start }) {
                     markSolved(at: hit.at, auto: true)
                 }

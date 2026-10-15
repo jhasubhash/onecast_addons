@@ -70,8 +70,11 @@ struct LCTile: View {
 
     private var helpText: String {
         if model.done { return "Solved today — \(model.streak)-day streak" }
-        if let p = model.problem { return "Today: \(p.title) (\(p.difficulty.rawValue))" }
-        return model.pickError ?? "Finding today's problem…"
+        if let p = model.problem {
+            let n = model.config.goal > 1 ? " · \(model.solvedToday) of \(model.config.goal) solved" : ""
+            return "Today: \(p.title) (\(p.difficulty.rawValue))\(n)"
+        }
+        return model.pickError ?? (model.solvedToday > 0 ? "Finding your next problem…" : "Finding today's problem…")
     }
 
     /// Top-right corner: green check when done, a nudge when late, else today's difficulty.
@@ -119,6 +122,7 @@ struct LCTile: View {
             compact
             if let p = model.problem, !model.done {
                 DifficultyPill(difficulty: p.difficulty, size: max(7, L * 0.13))
+                if model.config.goal > 1 { progress(max(7, L * 0.13)) }
             } else if model.done {
                 Text("Done").font(.system(size: max(8, L * 0.15), weight: .semibold)).foregroundStyle(.green)
             }
@@ -135,7 +139,8 @@ struct LCTile: View {
             Text("Done for today")
                 .font(.system(size: max(9, L * 0.18), weight: .semibold)).foregroundStyle(.green)
                 .lineLimit(1).minimumScaleFactor(0.7)
-            Text(p.title).font(.system(size: small)).foregroundStyle(.secondary)
+            Text(model.config.goal > 1 ? "\(model.solvedToday) problems solved" : p.title)
+                .font(.system(size: small)).foregroundStyle(.secondary)
                 .lineLimit(1).truncationMode(.tail)
         } else if let p = model.problem {
             Text(p.title)
@@ -143,6 +148,7 @@ struct LCTile: View {
                 .lineLimit(2).minimumScaleFactor(0.8)
             HStack(spacing: 4) {
                 DifficultyPill(difficulty: p.difficulty, size: max(7, L * 0.13))
+                if model.config.goal > 1 { progress(small * 0.9) }
                 if model.nudging {
                     Text(model.atRisk ? "streak at risk" : "not solved yet")
                         .font(.system(size: small * 0.9)).foregroundStyle(.red).lineLimit(1)
@@ -154,6 +160,13 @@ struct LCTile: View {
             Label("Couldn't load", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: small)).foregroundStyle(.orange)
         }
+    }
+
+    /// "1/3": problems solved today out of the daily goal.
+    private func progress(_ size: CGFloat) -> some View {
+        Text("\(model.solvedToday)/\(model.config.goal)")
+            .font(.system(size: size, weight: .semibold, design: .rounded)).monospacedDigit()
+            .foregroundStyle(.secondary).lineLimit(1).fixedSize()
     }
 }
 
@@ -180,7 +193,7 @@ struct WeekStrip: View {
 
     private func dot(_ key: String) -> some View {
         let d = model.state.days[key]
-        let color: Color = d?.solved == true ? (d?.problem?.difficulty.color ?? .green)
+        let color: Color = d?.solved == true ? (d?.hardest?.color ?? .green)
             : d?.frozen == true ? freezeColor
             : Color.primary.opacity(0.12)
         return Circle().fill(color)
@@ -288,8 +301,10 @@ struct LCPopover: View {
             } else {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Finding today's problem…").foregroundStyle(.secondary)
+                    Text(model.solvedToday > 0 ? "Finding your next problem…" : "Finding today's problem…")
+                        .foregroundStyle(.secondary)
                 }
+                earlierSolves(except: nil)
             }
         }
         .padding(12)
@@ -312,6 +327,9 @@ struct LCPopover: View {
             if model.done {
                 Label("Solved", systemImage: "checkmark.seal.fill").font(.caption.weight(.semibold))
                     .foregroundStyle(.green)
+            } else if model.config.goal > 1 {
+                Text("\(model.solvedToday + 1) of \(model.config.goal)")
+                    .font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(.secondary)
             }
         }
         Button {
@@ -325,6 +343,7 @@ struct LCPopover: View {
         if !p.tags.isEmpty {
             Text(p.tags.prefix(4).joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
+        earlierSolves(except: p.slug)
 
         if !model.done {
             if model.atRisk {
@@ -346,17 +365,25 @@ struct LCPopover: View {
 
             if model.done {
                 Button("Undo") { model.undoSolved() }
-                    .help("Mark today's problem unsolved again")
+                    .help(model.solvedToday > 1 ? "Mark your last solve unsolved again" : "Mark today's problem unsolved again")
             } else {
                 Button {
                     model.markSolved()
                 } label: {
                     Label("Solved", systemImage: "checkmark")
                 }
-                .help("Mark today's problem solved")
+                .help(model.solvedToday + 1 < model.config.goal ? "Mark solved and move to the next problem" : "Mark today's problem solved")
             }
             Spacer(minLength: 0)
             if !model.done {
+                if model.solvedToday > 0 {
+                    Button {
+                        model.undoSolved()
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .help("Undo your last solve and go back to it")
+                }
                 Button {
                     model.skip()
                 } label: {
@@ -380,6 +407,31 @@ struct LCPopover: View {
         if !model.done && !model.hasUsername {
             Text("Tip: set your LeetCode username in Settings and the widget will spot your accepted solution by itself.")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Today's other solved problems, each a link back to LeetCode.
+    @ViewBuilder
+    private func earlierSolves(except slug: String?) -> some View {
+        let solves = (model.day?.solves ?? []).filter { $0.problem.slug != slug }
+        if model.config.goal > 1, !solves.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Solved today").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                ForEach(solves, id: \.problem.slug) { s in
+                    Button {
+                        context.actions.openURL(s.problem.url)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(s.problem.difficulty.color)
+                            Text(s.problem.title).lineLimit(1)
+                            Spacer(minLength: 0)
+                            Text("+\(s.xp) XP").foregroundStyle(.secondary).monospacedDigit()
+                        }
+                        .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -425,7 +477,7 @@ struct LCPopover: View {
 
 // MARK: - Heatmap
 
-/// The last 16 weeks, a column per week, coloured by the solved problem's difficulty.
+/// The last 16 weeks, a column per week, coloured by the hardest problem solved that day.
 struct Heatmap: View {
     let model: LCModel
     private let weeks = 16
@@ -436,7 +488,7 @@ struct Heatmap: View {
         let today = model.today
         let weekday = (Day.date(today).map { Day.calendar.component(.weekday, from: $0) } ?? 1) - 1
         let start = Day.shift(today, by: -((weeks - 1) * 7 + weekday))
-        let solved = Badge.solvedDays(model.state)
+        let solved = Badge.solvedProblems(model.state)
 
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -468,7 +520,7 @@ struct Heatmap: View {
     private func square(_ key: String, today: String) -> some View {
         let d = model.state.days[key]
         let fill: Color = key > today ? .clear
-            : d?.solved == true ? (d?.problem?.difficulty.color ?? .green)
+            : d?.solved == true ? (d?.hardest?.color ?? .green)
             : d?.frozen == true ? freezeColor.opacity(0.7)
             : Color.primary.opacity(0.08)
         RoundedRectangle(cornerRadius: 3)
@@ -482,7 +534,10 @@ struct Heatmap: View {
     private func tooltip(_ key: String, _ d: LCDay?) -> String {
         let date = Day.date(key)?.formatted(date: .abbreviated, time: .omitted) ?? key
         guard let d else { return date }
-        if d.solved, let p = d.problem { return "\(date): \(p.title) (\(p.difficulty.rawValue), +\(d.xp) XP)" }
+        if d.solves.count == 1, let s = d.solves.first {
+            return "\(date): \(s.problem.title) (\(s.problem.difficulty.rawValue), +\(s.xp) XP)"
+        }
+        if d.solved { return "\(date): \(d.solves.map(\.problem.title).joined(separator: ", ")) (+\(d.xp) XP)" }
         if d.frozen { return "\(date): streak freeze" }
         if let p = d.problem { return "\(date): \(p.title) — not solved" }
         return date
@@ -529,6 +584,11 @@ struct PrefsPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("What should I suggest?").font(.caption.weight(.semibold))
 
+            Stepper(value: Binding(get: { model.config.goal }, set: { model.setGoal($0) }), in: 1...LCModel.maxGoal) {
+                Text(model.config.goal == 1 ? "1 problem a day" : "\(model.config.goal) problems a day")
+                    .font(.caption)
+            }
+
             Picker("Source", selection: Binding(get: { model.config.source }, set: { model.setSource($0) })) {
                 Text("Pick for me").tag(LCModel.Source.pick)
                 Text("Daily challenge").tag(LCModel.Source.daily)
@@ -566,7 +626,9 @@ struct PrefsPanel: View {
                 Text("Changes apply from your next problem — skip to use them today.")
                     .font(.caption2).foregroundStyle(.secondary)
             } else {
-                Text("Everyone gets the same problem: LeetCode's official daily challenge.")
+                Text(model.config.goal > 1
+                     ? "The first problem is LeetCode's official daily challenge; the rest are picked for you."
+                     : "Everyone gets the same problem: LeetCode's official daily challenge.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
         }

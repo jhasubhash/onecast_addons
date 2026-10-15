@@ -7,7 +7,7 @@ Copies whatever the frontmost app is pointing at, choosing the answer by app:
 | Finder | the POSIX paths of the selected files and folders; with nothing selected, the folder the window is showing |
 | Safari, Safari Technology Preview, Orion | the front document's URL |
 | Chrome, Brave, Edge, Arc, Dia, Vivaldi, Opera, Chromium, Comet | the active tab's URL |
-| anything else | the front window's `AXDocument` — a `file://` URL becomes a path, a page address stays a URL |
+| anything else | the front window's `AXDocument` — a `file://` URL becomes a path, a page address stays a URL; if that is unset, the `AXURL` of the focused window's web area (Crest and other browsers with broken AppleScript) |
 
 `mode: "no-view"`, so it copies and shows a HUD without opening a palette screen. An app with no
 answer — no open window, or one that exposes no document — reports that in a failure toast.

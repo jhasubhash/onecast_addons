@@ -40,6 +40,48 @@ function osascript(script: string): string {
   return execFileSync("osascript", ["-e", script], { encoding: "utf8", timeout: 10_000 }).trim();
 }
 
+// AppleScript prints a missing value as the literal text "missing value"; that means "no answer".
+function answer(value: string): string {
+  return value === "missing value" ? "" : value;
+}
+
+// The page URL of the focused window's web area, read straight from the accessibility API. Browsers
+// whose AppleScript dictionary is broken (Crest declares Chromium's but answers no `window`) and that
+// leave AXDocument unset still expose AXURL on their AXWebArea — System Events can see that attribute
+// but fails to coerce its NSURL, so this goes through JXA instead. Breadth-first, so the page itself
+// wins over any web area nested inside it.
+const AX_WEB_URL = `
+ObjC.import('AppKit');
+ObjC.bindFunction('AXUIElementCreateApplication', ['id', ['int']]);
+ObjC.bindFunction('AXUIElementCopyAttributeValue', ['int', ['id', 'id', 'id*']]);
+function run(argv) {
+  const app = $.NSRunningApplication.runningApplicationsWithBundleIdentifier(argv[0]).firstObject;
+  if (!app) return '';
+  const get = (el, name) => { const r = Ref(); return $.AXUIElementCopyAttributeValue(el, $(name), r) === 0 ? r[0] : null; };
+  const win = get($.AXUIElementCreateApplication(app.processIdentifier), 'AXFocusedWindow');
+  const queue = win ? [win] : [];
+  for (let seen = 0; queue.length && seen < 2000; seen++) {
+    const el = queue.shift();
+    if (ObjC.unwrap(get(el, 'AXRole')) === 'AXWebArea') {
+      const url = get(el, 'AXURL');
+      if (url) return ObjC.unwrap(url.absoluteString);
+    }
+    const kids = get(el, 'AXChildren');
+    if (kids) for (let i = 0; i < kids.count; i++) queue.push(kids.objectAtIndex(i));
+  }
+  return '';
+}`;
+
+function webAreaURL(bundleId: string): string {
+  try {
+    return answer(
+      execFileSync("osascript", ["-l", "JavaScript", "-e", AX_WEB_URL, bundleId], { encoding: "utf8", timeout: 10_000 }).trim()
+    );
+  } catch {
+    return "";
+  }
+}
+
 /// What the frontmost app is pointing at, named for the HUD.
 async function resolve(app: Frontmost, preferences: Preferences): Promise<{ label: string; value: string }> {
   const bundleId = app.bundleId ?? "";
@@ -70,15 +112,16 @@ async function resolve(app: Frontmost, preferences: Preferences): Promise<{ labe
   // thing as an empty result: this app has nothing to give us.
   let document = "";
   try {
-    document = osascript(
+    document = answer(osascript(
       `tell application "System Events"
          set proc to first process whose bundle identifier is "${bundleId}"
          return value of attribute "AXDocument" of window 1 of proc
        end tell`
-    );
+    ));
   } catch {
     document = "";
   }
+  if (!document) document = webAreaURL(bundleId);
   if (!document) throw new Error(`${app.name} has no file or URL in its front window`);
   if (!document.startsWith("file://")) return { label: "URL", value: document };
   return { label: "path", value: decodeURIComponent(document.slice("file://".length)) };

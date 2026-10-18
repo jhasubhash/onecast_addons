@@ -1,0 +1,9 @@
+{
+  "name": "Audio Devices",
+  "identifier": "com.sujha.dockwidget.audio-devices",
+  "subtitle": "Active headphones and microphone",
+  "icon": "headphones",
+  "category": "System",
+  "sizes": ["compact", "wide"],
+  "module": "AudioDevicesDockWidget"
+}

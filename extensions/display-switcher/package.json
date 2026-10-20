@@ -21,11 +21,11 @@
     {
       "name": "inputs",
       "title": "Monitor Inputs",
-      "description": "One entry per monitor, separated by ';'. Each entry: 'name=A/B', where name matches the monitor's name (from `m1ddc display list`) and A/B are the input codes of the two Macs. The same value works on both Macs. Common codes: DP 1: 15, DP 2: 16, HDMI 1: 17, HDMI 2: 18, USB-C: 27.",
+      "description": "One entry per monitor, separated by ';'. Each entry: 'name=A/B', where name matches the monitor's name (from `m1ddc display list`) and A/B are the input codes of the two Macs. The same value works on both Macs. Common codes: DP 1: 15, DP 2: 16, HDMI 1: 17, HDMI 2: 18, USB-C: 27. Some Samsungs use HDMI 1: 5, HDMI 2: 6.",
       "type": "textfield",
       "required": false,
-      "default": "BenQ=15/19; LU28R55=18/15",
-      "placeholder": "BenQ=15/19; LU28R55=18/15"
+      "default": "BenQ=15/19; LU28R55=6/5",
+      "placeholder": "BenQ=15/19; LU28R55=6/5"
     },
     {
       "name": "m1ddcPath",

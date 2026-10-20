@@ -38,7 +38,7 @@ async function m1ddc(args: string[]): Promise<string> {
 }
 
 /**
- * Parses the inputs preference, e.g. "BenQ=15/19; LU28R55=17/18".
+ * Parses the inputs preference, e.g. "BenQ=15/19; LU28R55=6/5".
  * Entries are separated by ';', ',' or newlines so the value fits a single-line field.
  */
 export function parseInputs(raw: string | undefined): MonitorConfig[] {

@@ -59,7 +59,7 @@ And the rest:
 |---|---|
 | **Reload Plugins** | Rebuilds native Swift plugins from source and restarts OneCast so the new code loads. |
 | **Reload DockWidgets** | Copies widgets from `dockwidgets/` into OneCast, which recompiles them and refreshes every live tile. |
-| **Display Switcher** | Hands both shared monitors to the other Mac in one keystroke, over DDC/CI with `m1ddc`. |
+| **Display Switcher** | Hands the shared monitors to the other Mac in one keystroke, both or just one, over DDC/CI with `m1ddc`. |
 | **Copy Path** | Copies what the frontmost app points at: Finder's selection as paths, a browser's page URL. |
 | **Parse Text** | Cleans up the selected text (or the clipboard), starting with links a line-wrap split in two. |
 | **Fork Sync Status** | Checks whether your fork is in sync with its upstream, using the `gh` CLI. |

@@ -2,7 +2,7 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "display-switcher",
   "title": "Display Switcher",
-  "description": "Hand every shared monitor to the other Mac at once, over DDC/CI with m1ddc.",
+  "description": "Hand shared monitors to the other Mac, one or all at once, over DDC/CI with m1ddc.",
   "icon": "command-icon.png",
   "author": "sujha",
   "categories": ["System"],
@@ -11,10 +11,26 @@
     {
       "name": "toggle-displays",
       "title": "Toggle Displays",
-      "subtitle": "Other Mac",
+      "subtitle": "Both",
       "description": "Switch every configured monitor to the other Mac's input (no UI).",
       "mode": "no-view",
       "keywords": ["monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
+    },
+    {
+      "name": "toggle-main-display",
+      "title": "Toggle Main Display",
+      "subtitle": "First in Monitor Inputs",
+      "description": "Switch only the first monitor in Monitor Inputs to the other Mac's input (no UI).",
+      "mode": "no-view",
+      "keywords": ["main", "primary", "monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
+    },
+    {
+      "name": "toggle-secondary-display",
+      "title": "Toggle Secondary Display",
+      "subtitle": "Second in Monitor Inputs",
+      "description": "Switch only the second monitor in Monitor Inputs to the other Mac's input (no UI).",
+      "mode": "no-view",
+      "keywords": ["secondary", "monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
     }
   ],
   "preferences": [
@@ -50,7 +66,7 @@
     "esbuild": "^0.25.10"
   },
   "scripts": {
-    "build": "esbuild src/toggle-displays.ts --outdir=. --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
+    "build": "esbuild src/toggle-displays.ts src/toggle-main-display.ts src/toggle-secondary-display.ts --outdir=. --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
     "watch": "npm run build -- --watch",
     "install-ext": "./install.sh",
     "ship": "npm run build && ./install.sh",

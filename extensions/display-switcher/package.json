@@ -1,0 +1,59 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "display-switcher",
+  "title": "Display Switcher",
+  "description": "Hand every shared monitor to the other Mac at once, over DDC/CI with m1ddc.",
+  "icon": "command-icon.png",
+  "author": "sujha",
+  "categories": ["System"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "toggle-displays",
+      "title": "Toggle Displays",
+      "subtitle": "Other Mac",
+      "description": "Switch every configured monitor to the other Mac's input (no UI).",
+      "mode": "no-view",
+      "keywords": ["monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "inputs",
+      "title": "Monitor Inputs",
+      "description": "One entry per monitor, separated by ';'. Each entry: 'name=A/B', where name matches the monitor's name (from `m1ddc display list`) and A/B are the input codes of the two Macs. The same value works on both Macs. Common codes: DP 1: 15, DP 2: 16, HDMI 1: 17, HDMI 2: 18, USB-C: 27.",
+      "type": "textfield",
+      "required": false,
+      "default": "BenQ=15/19; LU28R55=17/15",
+      "placeholder": "BenQ=15/19; LU28R55=17/15"
+    },
+    {
+      "name": "m1ddcPath",
+      "title": "m1ddc Path",
+      "description": "Optional absolute path to the m1ddc executable. Leave empty for auto-detection.",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "/opt/homebrew/bin/m1ddc"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.78.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "esbuild": "^0.25.10"
+  },
+  "scripts": {
+    "build": "esbuild src/toggle-displays.ts --outdir=. --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
+    "watch": "npm run build -- --watch",
+    "install-ext": "./install.sh",
+    "ship": "npm run build && ./install.sh",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}

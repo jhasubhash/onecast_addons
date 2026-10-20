@@ -12,25 +12,33 @@
       "name": "toggle-displays",
       "title": "Toggle Displays",
       "subtitle": "Both",
-      "description": "Switch every configured monitor to the other Mac's input (no UI).",
+      "description": "Switch every configured monitor to the Mac it isn't showing (no UI).",
       "mode": "no-view",
       "keywords": ["monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
     },
     {
-      "name": "toggle-main-display",
-      "title": "Toggle Main Display",
+      "name": "toggle-primary-display",
+      "title": "Toggle Primary Display",
       "subtitle": "First in Monitor Inputs",
-      "description": "Switch only the first monitor in Monitor Inputs to the other Mac's input (no UI).",
+      "description": "Switch only the first monitor in Monitor Inputs to the Mac it isn't showing (no UI).",
       "mode": "no-view",
-      "keywords": ["main", "primary", "monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
+      "keywords": ["primary", "main", "monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
     },
     {
       "name": "toggle-secondary-display",
       "title": "Toggle Secondary Display",
       "subtitle": "Second in Monitor Inputs",
-      "description": "Switch only the second monitor in Monitor Inputs to the other Mac's input (no UI).",
+      "description": "Switch only the second monitor in Monitor Inputs to the Mac it isn't showing (no UI).",
       "mode": "no-view",
       "keywords": ["secondary", "monitor", "display", "input", "kvm", "ddc", "switch", "macbook", "studio"]
+    },
+    {
+      "name": "reset-displays",
+      "title": "Reset Displays",
+      "subtitle": "Follow Primary",
+      "description": "Send every monitor to the Mac the primary monitor shows, to undo a mixed-up state (no UI).",
+      "mode": "no-view",
+      "keywords": ["reset", "sync", "monitor", "display", "input", "kvm", "ddc", "macbook", "studio"]
     }
   ],
   "preferences": [
@@ -66,7 +74,7 @@
     "esbuild": "^0.25.10"
   },
   "scripts": {
-    "build": "esbuild src/toggle-displays.ts src/toggle-main-display.ts src/toggle-secondary-display.ts --outdir=. --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
+    "build": "esbuild src/toggle-displays.ts src/toggle-primary-display.ts src/reset-displays.ts src/toggle-secondary-display.ts --outdir=. --bundle --format=cjs --platform=node --target=es2022 --external:@raycast/api",
     "watch": "npm run build -- --watch",
     "install-ext": "./install.sh",
     "ship": "npm run build && ./install.sh",

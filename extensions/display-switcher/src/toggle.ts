@@ -27,11 +27,25 @@ async function resolveSide(visible: Target[]): Promise<number> {
   throw new Error(`Can't tell which Mac this is (${readings || "no monitor readings"})`);
 }
 
+const reports = (t: Target) => t.current !== undefined && t.config.codes.includes(t.current);
+
 /**
- * Only the Mac a monitor is showing can talk to it, so "toggle" means: send the chosen monitors to
- * the other Mac's code. `pick` chooses them from the configured monitors, in preference order.
+ * Which Mac a monitor shows now: its reading when it reports one of its codes, otherwise the last
+ * code this Mac sent it. A Mac can stay connected to a monitor showing the other Mac (the Samsung
+ * keeps its HDMI link up), so "visible" doesn't mean "showing this Mac".
  */
-export async function toggle(pick: (configs: MonitorConfig[]) => MonitorConfig[]) {
+async function resolveShowing(t: Target, side: () => Promise<number>): Promise<number> {
+  if (reports(t)) return t.config.codes.indexOf(t.current!);
+  const sent = await LocalStorage.getItem<number>(`showing:${t.config.name}`);
+  return sent === 0 || sent === 1 ? sent : side();
+}
+
+/**
+ * Flip each chosen monitor to the Mac it isn't showing, or with `reset`, send every monitor to the
+ * Mac the primary (first configured) monitor shows. `pick` chooses the monitors from the configured
+ * ones, in preference order.
+ */
+export async function toggle(pick: (configs: MonitorConfig[]) => MonitorConfig[], reset = false) {
   try {
     const configs = getMonitorConfigs();
     const chosen = pick(configs);
@@ -46,16 +60,30 @@ export async function toggle(pick: (configs: MonitorConfig[]) => MonitorConfig[]
 
     const targets = visible.filter((t) => chosen.includes(t.config));
     if (targets.length === 0) {
-      throw new Error(`${chosen.map((c) => c.name).join(", ")} isn't showing this Mac`);
+      throw new Error(`${chosen.map((c) => c.name).join(", ")} isn't connected to this Mac`);
     }
-    const other = 1 - (await resolveSide(visible));
+    let side: number | undefined;
+    const thisSide = async () => (side ??= await resolveSide(visible));
+    if (visible.some(reports)) await thisSide(); // keep the remembered side fresh
 
-    // Switch a monitor whose reading matches last: with a built-in KVM it takes the keyboard with it.
-    const isReference = (t: Target) => t.current !== undefined && t.config.codes.includes(t.current);
-    const ordered = [...targets.filter((t) => !isReference(t)), ...targets.filter(isReference)];
-    for (const t of ordered) await setInput(t.display, t.config.codes[other]);
+    // The primary monitor's Mac: read when it's connected here, otherwise it shows the other Mac.
+    let primarySide: number | undefined;
+    if (reset) {
+      const primary = visible.find((t) => t.config === configs[0]);
+      primarySide = primary ? await resolveShowing(primary, thisSide) : 1 - (await thisSide());
+    }
 
-    await showHUD(`${ordered.map((t) => t.config.name).join(", ")} → other Mac`);
+    // Switch a monitor that reports its input last: with a built-in KVM it takes the keyboard with it.
+    const ordered = [...targets.filter((t) => !reports(t)), ...targets.filter(reports)];
+    const moves: string[] = [];
+    for (const t of ordered) {
+      const next = primarySide ?? 1 - (await resolveShowing(t, thisSide));
+      if (t.current !== t.config.codes[next]) await setInput(t.display, t.config.codes[next]);
+      await LocalStorage.setItem(`showing:${t.config.name}`, next);
+      moves.push(`${t.config.name} → ${next === (await thisSide()) ? "this Mac" : "other Mac"}`);
+    }
+
+    await showHUD(moves.join(", "));
   } catch (e) {
     await showToast({
       style: Toast.Style.Failure,

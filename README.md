@@ -87,7 +87,12 @@ ones a keystroke away.</p>
 <img src="docs/screenshots/plugin-snake.png" alt="Snake">
 <p><b>Snake</b>: retro snake, right in the palette.</p>
 </td>
-<td></td>
+<td valign="top">
+<p><b><a href="plugins/google-ai-mode">Google AI Mode</a></b>: ask Google's AI Mode from the
+launcher and keep chatting there. It shows only the conversation, restyled to match the launcher.
+Threads are saved so you can come back to them, and a conversation can be popped out into its own
+window.</p>
+</td>
 </tr>
 </table>
 

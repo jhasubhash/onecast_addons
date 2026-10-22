@@ -1,0 +1,35 @@
+{
+  "name": "Google AI Mode",
+  "identifier": "com.sujha.googleaimode",
+  "subtitle": "Ask Google's AI Mode and keep chatting, inside the launcher",
+  "icon": "sparkle.magnifyingglass",
+  "preferences": [
+    {
+      "name": "chatOnly",
+      "title": "Show only the conversation",
+      "type": "checkbox",
+      "default": true,
+      "description": "Hides Google's logo, tabs, account bar and side menu around the chat."
+    },
+    {
+      "name": "zoom",
+      "title": "Page zoom",
+      "type": "dropdown",
+      "default": "0.9",
+      "description": "Google's page is sized for a browser; a little smaller fits the launcher better.",
+      "options": [
+        {"title": "75%", "value": "0.75"},
+        {"title": "85%", "value": "0.85"},
+        {"title": "90%", "value": "0.9"},
+        {"title": "100%", "value": "1.0"}
+      ]
+    },
+    {
+      "name": "keepThreads",
+      "title": "Threads to keep",
+      "type": "textfield",
+      "default": 50,
+      "description": "Older threads drop off the list once there are more than this."
+    }
+  ]
+}

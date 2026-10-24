@@ -33,6 +33,18 @@
       ]
     },
     {
+      "name": "onepaper",
+      "title": "OnePaper",
+      "description": "What to copy from OnePaper: the page's path from the top of its folders, or a link that opens it.",
+      "type": "dropdown",
+      "required": false,
+      "default": "path",
+      "data": [
+        { "title": "Page path (Folder/Sub/Title)", "value": "path" },
+        { "title": "Page link (onepaper://doc/…)", "value": "link" }
+      ]
+    },
+    {
       "name": "quotePaths",
       "label": "Quote paths containing spaces",
       "description": "Wrap a path in double quotes when it has a space, so it pastes into a shell as one argument.",

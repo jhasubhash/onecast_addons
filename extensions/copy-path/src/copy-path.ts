@@ -9,7 +9,7 @@ import {
 } from "@raycast/api";
 import { execFileSync } from "node:child_process";
 
-type Preferences = { separator?: string; quotePaths?: boolean };
+type Preferences = { separator?: string; quotePaths?: boolean; onepaper?: string };
 
 // Which AppleScript dialect a browser answers to: Chromium exposes the address bar as
 // `active tab of front window`, WebKit as `front document`.
@@ -123,6 +123,13 @@ async function resolve(app: Frontmost, preferences: Preferences): Promise<{ labe
   }
   if (!document) document = webAreaURL(bundleId);
   if (!document) throw new Error(`${app.name} has no file or URL in its front window`);
+  // OnePaper sets it to the open page's link, `onepaper://doc/<id>?path=Folder/Sub/Title`, with the
+  // page's place from the top of its folders.
+  if (document.startsWith("onepaper://")) {
+    const path = new URL(document).searchParams.get("path");
+    if (preferences.onepaper === "link" || !path) return { label: "link", value: document };
+    return { label: "path", value: preferences.quotePaths && path.includes(" ") ? `"${path}"` : path };
+  }
   if (!document.startsWith("file://")) return { label: "URL", value: document };
   return { label: "path", value: decodeURIComponent(document.slice("file://".length)) };
 }

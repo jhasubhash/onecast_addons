@@ -7,7 +7,7 @@ Copies whatever the frontmost app is pointing at, choosing the answer by app:
 | Finder | the POSIX paths of the selected files and folders; with nothing selected, the folder the window is showing |
 | Safari, Safari Technology Preview, Orion | the front document's URL |
 | Chrome, Brave, Edge, Arc, Dia, Vivaldi, Opera, Chromium, Comet | the active tab's URL |
-| OnePaper | the open page's path from the top of its folders, `Health/Temp/Blood Sugar & BP Tracker` (or its `onepaper://doc/…` link, by preference), from the `AXDocument` OnePaper sets |
+| OnePaper | the open page's path from the top of its folders, `Health/Temp/Blood Sugar & BP Tracker`, or with no page open, the folder being shown, `Health/Temp` (or its `onepaper://doc/…` or `onepaper://folder/…` link, by preference), from the `AXDocument` OnePaper sets |
 | anything else | the front window's `AXDocument` — a `file://` URL becomes a path, a page address stays a URL; if that is unset, the `AXURL` of the focused window's web area (Crest and other browsers with broken AppleScript) |
 
 `mode: "no-view"`, so it copies and shows a HUD without opening a palette screen. An app with no

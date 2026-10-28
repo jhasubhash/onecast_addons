@@ -59,6 +59,15 @@
       "required": false,
       "default": "",
       "placeholder": "/opt/homebrew/bin/m1ddc"
+    },
+    {
+      "name": "otherMac",
+      "title": "Other Mac (SSH)",
+      "description": "Optional SSH destination of the other Mac, e.g. 'sujha@Subhashs-MacBook-Pro-2.local'. Before a monitor is switched to it, its display is woken over SSH (caffeinate -u), so a monitor's built-in KVM hands it the keyboard even when its lid is closed and its display asleep. Needs Remote Login on that Mac and key-based login from this one (no prompt).",
+      "type": "textfield",
+      "required": false,
+      "default": "",
+      "placeholder": "user@Other-Mac.local"
     }
   ],
   "dependencies": {

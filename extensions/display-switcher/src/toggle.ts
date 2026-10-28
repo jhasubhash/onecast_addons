@@ -1,5 +1,6 @@
 import { LocalStorage, showHUD, showToast, Toast } from "@raycast/api";
 import { Display, MonitorConfig, getInput, getMonitorConfigs, listDisplays, setInput } from "./ddc";
+import { otherMacHost, wakeDisplay } from "./wake";
 
 const SIDE_KEY = "side";
 
@@ -75,12 +76,35 @@ export async function toggle(pick: (configs: MonitorConfig[]) => MonitorConfig[]
 
     // Switch a monitor that reports its input last: with a built-in KVM it takes the keyboard with it.
     const ordered = [...targets.filter((t) => !reports(t)), ...targets.filter(reports)];
+    const plan: { t: Target; next: number }[] = [];
+    for (const t of ordered) plan.push({ t, next: primarySide ?? 1 - (await resolveShowing(t, thisSide)) });
+
+    // Wake the other Mac's display first, so a KVM monitor moving to it can hand over the keyboard.
+    const host = otherMacHost();
+    let wakeFailure: string | undefined;
+    const mine = await thisSide();
+    if (host && plan.some(({ t, next }) => next !== mine && t.current !== t.config.codes[next])) {
+      try {
+        await wakeDisplay(host);
+      } catch (e) {
+        wakeFailure = e instanceof Error ? e.message.split("\n").filter(Boolean).pop() : String(e);
+      }
+    }
+
     const moves: string[] = [];
-    for (const t of ordered) {
-      const next = primarySide ?? 1 - (await resolveShowing(t, thisSide));
+    for (const { t, next } of plan) {
       if (t.current !== t.config.codes[next]) await setInput(t.display, t.config.codes[next]);
       await LocalStorage.setItem(`showing:${t.config.name}`, next);
       moves.push(`${t.config.name} → ${next === (await thisSide()) ? "this Mac" : "other Mac"}`);
+    }
+
+    if (wakeFailure) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: `${moves.join(", ")}, but couldn't wake ${host}`,
+        message: wakeFailure,
+      });
+      return;
     }
 
     await showHUD(moves.join(", "));

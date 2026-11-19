@@ -11,6 +11,10 @@ the HUD says so and a card offers **Open** and **Show in Finder**.
 - The chips pick the **model**, **aspect ratio** (1:1, 4:5, 9:16, 2:3, 3:4 and their landscape
   versions), **quality**, a **style** and how many images (1–4). **More** adds things to avoid, a fixed
   seed, a faster draft size and a LoRA with its strength.
+- **Quality** on Qwen-Image 2.1: **Fast** (8-step LoRA, about 1 min, a different and grittier picture), **Balanced**
+  (Standard's 25 steps with EasyCache, which skips steps that barely change: about 1:45 instead of 3:36 at 9:16, the
+  same picture with slightly softer fine detail), **Standard** and **High** (35 steps). Balanced is only offered on
+  Qwen-Image 2.1, where it was tested.
 - **Match Image 1** (top of the aspect menu, on by default) sizes an **Edit** to the closest preset to
   the first reference's shape, so the model edits that picture instead of redrawing it for another
   frame. Other modes, and runs without a reference, use the preset you last picked. For a face swap,

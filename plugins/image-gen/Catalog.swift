@@ -402,9 +402,18 @@ enum AspectRatio: String, CaseIterable, Codable, Sendable, Identifiable {
 }
 
 enum Quality: String, CaseIterable, Codable, Sendable, Identifiable {
-    case fast, standard, high
+    case fast, balanced, standard, high
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
+    /// What the menu says under each name.
+    var help: String {
+        switch self {
+        case .fast: "Fewest steps; quickest, some loss"
+        case .balanced: "Standard's steps, skipping near-repeats; ~2x faster, nearly identical"
+        case .standard: "The model's usual steps"
+        case .high: "More steps, most detail"
+        }
+    }
 }
 
 /// Sampler settings for one family at one quality.
@@ -417,8 +426,18 @@ struct SamplerPlan: Sendable {
     var speedLora: String?
     /// FLUX's distilled guidance (FluxGuidance), when the family uses it.
     var guidance: Double?
+    /// EasyCache's reuse threshold: steps whose output barely changes reuse the last one (Balanced).
+    var easyCache: Double?
 
     static func plan(_ family: ModelFamily, _ quality: Quality, catalog: Catalog) -> SamplerPlan {
+        // Balanced is Standard plus EasyCache: on Qwen-Image 2.1 (2026-11-19, 3 prompts, same seed) it skipped 13-14 of
+        // 25 steps, 3:36 -> ~1:45, with the same picture and ~5% less fine edge detail. Fast (the 8-step LoRA) took 1:08
+        // but changed the picture and added grit and stray lines. Only offered where it was tested.
+        if quality == .balanced {
+            var p = plan(family, .standard, catalog: catalog)
+            p.easyCache = 0.2
+            return p
+        }
         switch family {
         case .qwenImage:
             if quality == .fast, let lightning = catalog.lightning {
@@ -461,11 +480,11 @@ struct SamplerPlan: Sendable {
     /// Which qualities mean something different for this family, so the picker never offers a no-op.
     static func qualities(_ family: ModelFamily, catalog: Catalog) -> [Quality] {
         switch family {
-        case .qwenImage: catalog.lightning == nil ? [.standard, .high] : Quality.allCases
+        case .qwenImage: catalog.lightning == nil ? [.standard, .high] : [.fast, .standard, .high]
         case .qwenEdit: catalog.editLightning == nil ? [.high] : [.standard, .high]
-        case .qwenImage21: catalog.qwen21Speed == nil ? [.standard, .high] : Quality.allCases
+        case .qwenImage21: catalog.qwen21Speed == nil ? [.balanced, .standard, .high] : Quality.allCases
         case .fluxSchnell: [.standard]
-        default: Quality.allCases
+        default: [.fast, .standard, .high]
         }
     }
 }

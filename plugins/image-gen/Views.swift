@@ -273,7 +273,7 @@ struct RootView: View {
                     ForEach(qualities) { q in
                         Button { quality = q } label: {
                             Text(q.label + (q == quality ? "  ✓" : ""))
-                            Text("\(SamplerPlan.plan(family, q, catalog: catalog).steps) steps")
+                            Text("\(SamplerPlan.plan(family, q, catalog: catalog).steps) steps · \(q.help)")
                         }
                     }
                 } label: {

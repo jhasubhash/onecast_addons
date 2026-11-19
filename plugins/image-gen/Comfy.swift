@@ -95,7 +95,7 @@ enum Workflow {
         case .sdxl, .sdxlTurbo, .sd15:
             g = checkpoint(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed, prefix: prefix)
         }
-        guard let first = referenceNames.first else { return g }
+        guard let first = referenceNames.first else { return withEasyCache(g, plan) }
         switch r.mode {
         case .variation:
             // Image-to-image: the reference, cropped to the chosen size, is the starting latent.
@@ -125,6 +125,20 @@ enum Workflow {
         case .edit, nil:
             break
         }
+        return withEasyCache(g, plan)
+    }
+
+    /// Balanced: EasyCache between the model chain and the sampler (node 9), after any IP-Adapter.
+    private static func withEasyCache(_ graph: [String: Any], _ plan: SamplerPlan) -> [String: Any] {
+        guard let threshold = plan.easyCache, var k = graph["9"] as? [String: Any],
+              var inputs = k["inputs"] as? [String: Any], let model = inputs["model"] else { return graph }
+        var g = graph
+        g["95"] = ["class_type": "EasyCache", "inputs": [
+            "model": model, "reuse_threshold": threshold, "start_percent": 0.15, "end_percent": 0.95,
+            "verbose": false] as [String: Any]]
+        inputs["model"] = ["95", 0]
+        k["inputs"] = inputs
+        g["9"] = k
         return g
     }
 

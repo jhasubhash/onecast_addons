@@ -436,7 +436,7 @@ struct RootView: View {
                 }
                 Spacer(minLength: 0)
             }
-            Text(referenceCaption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+            Text(referenceCaption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3)
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 10)
@@ -448,7 +448,7 @@ struct RootView: View {
         }
         var text = mode.help
         if mode == .edit && references.count > 1 {
-            text += " Name them by number, e.g. \"the woman from image 1 wearing the outfit of image 2\"."
+            text += " Name them by number and say what to keep and what to change, e.g. \"Keep the woman from image 1 exactly; change only her clothes to the outfit in image 2\"."
         }
         if mode == .edit { text += references.count == 1 ? " One picture keeps its own size." : " Drawn at \(aspect.rawValue)." }
         if references.count > maxReferences {
@@ -545,7 +545,7 @@ struct RootView: View {
         if let text {
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
-                Text(text).lineLimit(2)
+                Text(text).lineLimit(3)
                 Spacer()
             }
             .font(.system(size: 12))
@@ -826,7 +826,7 @@ struct JobRow: View {
             Text(meta + (job.seconds.map { " · " + JobCenter.duration($0) } ?? "") + " · " + Self.ago(job.finished ?? job.created))
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         case .failed:
-            Text(job.error ?? "Failed").font(.system(size: 11)).foregroundStyle(.orange).lineLimit(2)
+            Text(job.error ?? "Failed").font(.system(size: 11)).foregroundStyle(.orange).lineLimit(3)
         case .cancelled:
             Text("Cancelled · " + meta).font(.system(size: 11)).foregroundStyle(.secondary)
         }

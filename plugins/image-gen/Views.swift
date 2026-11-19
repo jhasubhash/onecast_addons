@@ -16,6 +16,8 @@ struct RootView: View {
     @State private var negative = ""
     @State private var modelID: String?
     @State private var aspect: AspectRatio = .story
+    /// In Edit mode, size the result like image 1 instead of the chosen preset.
+    @State private var matchFirst = true
     @State private var quality: Quality = .standard
     @State private var draft = false
     @State private var styleID: String?
@@ -43,6 +45,22 @@ struct RootView: View {
     private var modes: [ReferenceMode] { family.referenceModes }
     /// The mode in effect: the chosen one when this model has it, else the model's own.
     private var mode: ReferenceMode { modes.contains(referenceMode) ? referenceMode : (modes.first ?? .variation) }
+    /// Image 1's shape when "Match Image 1" applies: Edit mode with a reference whose size can be read.
+    private var matchedAspect: AspectRatio? {
+        guard matchFirst, mode == .edit, let first = references.first, let size = Self.pixelSize(first) else { return nil }
+        return AspectRatio.nearest(width: size.width, height: size.height)
+    }
+    private var effectiveAspect: AspectRatio { matchedAspect ?? aspect }
+
+    /// A picture's displayed size, with EXIF rotation applied, read from its header only.
+    private static func pixelSize(_ url: URL) -> CGSize? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? Double, let h = props[kCGImagePropertyPixelHeight] as? Double,
+              w > 0, h > 0 else { return nil }
+        let rotated = ((props[kCGImagePropertyOrientation] as? Int) ?? 1) >= 5
+        return rotated ? CGSize(width: h, height: w) : CGSize(width: w, height: h)
+    }
     private var maxReferences: Int { family.maxReferences(mode) }
     static let referenceLimit = 6
 
@@ -231,15 +249,22 @@ struct RootView: View {
             .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
 
             Menu {
+                Button { matchFirst = true } label: {
+                    Text("Match Image 1" + (matchFirst ? "  ✓" : ""))
+                    Text(mode == .edit && !references.isEmpty
+                         ? "Edit keeps the first picture's shape" + (matchedAspect.map { " (\($0.rawValue))" } ?? "")
+                         : "Edit mode only; otherwise \(aspect.rawValue)")
+                }
+                Divider()
                 ForEach(AspectRatio.allCases) { a in
-                    Button { aspect = a } label: {
-                        Text(a.label + (a == aspect ? "  ✓" : ""))
+                    Button { aspect = a; matchFirst = false } label: {
+                        Text(a.label + (a == aspect && !matchFirst ? "  ✓" : ""))
                         let (w, h) = a.size(for: family, draft: draft)
                         Text("\(w) × \(h)")
                     }
                 }
             } label: {
-                Chip(icon: aspectIcon, text: aspect.rawValue + (draft ? " · Draft" : ""))
+                Chip(icon: aspectIcon, text: (matchedAspect != nil ? "Match · " : "") + effectiveAspect.rawValue + (draft ? " · Draft" : ""))
             }
             .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
 
@@ -315,7 +340,7 @@ struct RootView: View {
     }
 
     private var aspectIcon: String {
-        let (w, h) = aspect.ratio
+        let (w, h) = effectiveAspect.ratio
         return w == h ? "square" : (w < h ? "rectangle.portrait" : "rectangle")
     }
 
@@ -333,7 +358,7 @@ struct RootView: View {
                     .frame(width: 130)
                 Toggle("Draft size (faster)", isOn: $draft).toggleStyle(.checkbox)
                 Spacer()
-                let (w, h) = aspect.size(for: family, draft: draft)
+                let (w, h) = effectiveAspect.size(for: family, draft: draft)
                 Text("\(w) × \(h)").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
             }
             if !loras.isEmpty {
@@ -552,7 +577,7 @@ struct RootView: View {
         let request = GenerationRequest(
             prompt: trimmed,
             negative: [negative, style?.negative ?? ""].filter { !$0.isEmpty }.joined(separator: ", "), modelID: model.id, modelTitle: model.title,
-            family: model.family, loader: model.loader, aspect: aspect,
+            family: model.family, loader: model.loader, aspect: effectiveAspect,
             quality: qualities.contains(quality) ? quality : (qualities.first ?? .standard),
             draft: draft, styleID: style?.id, loras: uses, trigger: style?.trigger ?? "", suffix: style?.suffix ?? "",
             seed: Int(seedText.trimmingCharacters(in: .whitespaces)), count: count,
@@ -576,6 +601,7 @@ struct RootView: View {
         prompt = r.prompt
         modelID = r.modelID
         aspect = r.aspect
+        matchFirst = false  // the job's aspect was already resolved; run it at that size
         quality = r.quality
         draft = r.draft
         styleID = r.styleID
@@ -674,6 +700,7 @@ struct RootView: View {
     private func restore() {
         modelID = Settings.remembered("model")
         aspect = Settings.remembered("aspect").flatMap(AspectRatio.init(rawValue:)) ?? .story
+        matchFirst = Settings.remembered("aspectMatchFirst").map { $0 == "true" } ?? true
         quality = Settings.remembered("quality").flatMap(Quality.init(rawValue:)) ?? .standard
         styleID = Settings.remembered("style")
         draft = Settings.remembered("draft") == "true"
@@ -687,6 +714,7 @@ struct RootView: View {
     private func remember() {
         Settings.remember(model?.id, "model")
         Settings.remember(aspect.rawValue, "aspect")
+        Settings.remember(matchFirst ? "true" : "false", "aspectMatchFirst")
         Settings.remember(quality.rawValue, "quality")
         Settings.remember(styleID, "style")
         Settings.remember(draft ? "true" : "false", "draft")

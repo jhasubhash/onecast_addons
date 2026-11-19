@@ -345,6 +345,12 @@ enum AspectRatio: String, CaseIterable, Codable, Sendable, Identifiable {
 
     var id: String { rawValue }
 
+    /// The preset closest in shape to a picture of this size, so an edit keeps the picture's framing.
+    static func nearest(width: Double, height: Double) -> AspectRatio {
+        let target = log(width / height)
+        return allCases.min { abs(log($0.ratio.w / $0.ratio.h) - target) < abs(log($1.ratio.w / $1.ratio.h) - target) } ?? .square
+    }
+
     var ratio: (w: Double, h: Double) {
         let parts = rawValue.split(separator: ":").compactMap { Double($0) }
         return (parts[0], parts[1])

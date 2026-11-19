@@ -423,6 +423,7 @@ struct RootView: View {
                                 ForEach(modes) { m in Text(m.label).tag(m) }
                             }
                             .pickerStyle(.segmented).labelsHidden().fixedSize()
+                            .help(mode.help)
                         }
                         if mode != .edit {
                             HStack(spacing: 6) {
@@ -436,25 +437,9 @@ struct RootView: View {
                 }
                 Spacer(minLength: 0)
             }
-            Text(referenceCaption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3)
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 10)
-    }
-
-    private var referenceCaption: String {
-        if references.isEmpty {
-            return "\(model?.title ?? "This model") edits the pictures you add: + to choose, ⌘V to paste, or drop them here."
-        }
-        var text = mode.help
-        if mode == .edit && references.count > 1 {
-            text += " Name them by number and say what to keep and what to change, e.g. \"Keep the woman from image 1 exactly; change only her clothes to the outfit in image 2\"."
-        }
-        if mode == .edit { text += references.count == 1 ? " One picture keeps its own size." : " Drawn at \(aspect.rawValue)." }
-        if references.count > maxReferences {
-            text += " \(model?.title ?? "") reads the first \(maxReferences == 1 ? "one" : String(maxReferences))."
-        }
-        return text
     }
 
     private var dropOverlay: some View {

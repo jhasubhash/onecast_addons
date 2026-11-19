@@ -368,9 +368,14 @@ final class JobCenter {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: Self.historyURL),
-            var saved = try? JSONDecoder.iso.decode([Job].self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: Self.historyURL) else { return }
+        guard var saved = try? JSONDecoder.iso.decode([Job].self, from: data) else {
+            // Unreadable (an older or newer format): keep it aside instead of overwriting it.
+            let aside = Self.historyURL.deletingPathExtension()
+                .appendingPathExtension("unreadable-\(Int(Date().timeIntervalSince1970)).json")
+            try? FileManager.default.moveItem(at: Self.historyURL, to: aside)
+            return
+        }
         // Work that was in flight when OneCast quit didn't finish; say so rather than show it running.
         for index in saved.indices where saved[index].isActive {
             saved[index].state = .failed

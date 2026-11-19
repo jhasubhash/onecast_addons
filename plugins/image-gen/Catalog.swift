@@ -65,12 +65,16 @@ struct LoraFile: Identifiable, Hashable, Sendable {
 /// A named look: base model, LoRAs and the trigger words the LoRAs were trained with. Read from
 /// Jarvis's `looks.json` files when they exist, so the styles tested there are one click away here.
 struct StylePreset: Identifiable, Hashable, Sendable {
+    enum Group: Int, Sendable { case custom, look, lora }
     let id: String
     let title: String
-    let family: ModelFamily
+    /// The model family its LoRAs need; nil for a prompt-only style, which works on every model.
+    let family: ModelFamily?
     let loras: [LoraUse]
     let trigger: String
     let suffix: String
+    var negative = ""
+    var group: Group = .lora
 }
 
 struct LoraUse: Hashable, Codable, Sendable {
@@ -95,7 +99,9 @@ struct Catalog: Sendable {
         return loras.filter { $0.families.isEmpty || $0.families.contains(family) }
     }
 
-    func styles(for family: ModelFamily) -> [StylePreset] { styles.filter { $0.family == family } }
+    func styles(for family: ModelFamily) -> [StylePreset] {
+        styles.filter { $0.family == nil || $0.family == family }
+    }
 
     /// The best model to start on: the newest Qwen when it is there.
     var preferred: ImageModel? {
@@ -176,7 +182,8 @@ struct Catalog: Sendable {
             c.loras.append(LoraFile(id: file.name, title: title, families: families))
         }
 
-        if let looksRoot { c.styles = styles(in: looksRoot, loras: Set(loraFiles.map(\.name))) }
+        let loraStyles = looksRoot.map { styles(in: $0, loras: Set(loraFiles.map(\.name))) } ?? []
+        c.styles = Styles.custom() + Styles.builtIn + loraStyles
         return c
     }
 
@@ -192,7 +199,7 @@ struct Catalog: Sendable {
             else { continue }
             let looks = (json["looks"] as? [String: Any]) ?? json
             for (name, value) in looks {
-                guard let look = value as? [String: Any], byName[name] == nil,
+                guard !Styles.hidden(name), let look = value as? [String: Any], byName[name] == nil,
                     let pairs = look["loras"] as? [[Any]], !pairs.isEmpty
                 else { continue }
                 let uses = pairs.compactMap { pair -> LoraUse? in

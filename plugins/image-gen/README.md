@@ -11,6 +11,13 @@ the HUD says so and a card offers **Open** and **Show in Finder**.
 - The chips pick the **model**, **aspect ratio** (1:1, 4:5, 9:16, 2:3, 3:4 and their landscape
   versions), **quality**, a **style** and how many images (1–4). **More** adds things to avoid, a fixed
   seed, a faster draft size and a LoRA with its strength.
+- **Styles:** 36 built-in looks that work on every model (Cinematic, Photoreal, Film Noir, Anime,
+  Watercolor, Pixel Art, Cyberpunk and more). Each adds words before and after your prompt and a few
+  things to avoid. Your own styles come first: **⌘K › Edit Your Styles** opens `styles.json`, a list
+  of `{"name", "before", "after", "avoid"}`; save it and choose Refresh Model List. Styles that need a
+  LoRA show in their own section, only for the model they were made for.
+- **Pop Out** (⌘K) opens ImageGen in its own window that stays up while you work; Return generates
+  there too, without closing it.
 - Your last choices are remembered.
 - Reopen ImageGen at any time to see what's queued, rendering, done or failed. Click a finished row to
   open it; hover for Copy, Show in Finder, Run Again (new seed) and Remove.
@@ -23,8 +30,8 @@ the HUD says so and a card offers **Open** and **Show in Finder**.
 
 ImageGen lists every image model under the models folder: Qwen-Image, Qwen-Image 2512 and
 Qwen-Image-Edit (GGUF or safetensors), and SDXL / SDXL Turbo / SD 1.5 checkpoints. Video models are
-left out. LoRAs show only for the base they were trained on, and styles come from the Jarvis
-`looks.json` presets. A Qwen speed LoRA (Lightning) is used for Fast and Standard when present.
+left out. LoRAs show only for the base they were trained on, and LoRA styles come from the Jarvis
+`looks.json` presets (the clay looks are left out). A Qwen speed LoRA (Lightning) is used for Fast and Standard when present.
 
 ## Settings (Settings → Plugins → ImageGen)
 
@@ -48,6 +55,7 @@ It also waits while a Jarvis video render holds the GPU memory.
 | File | What it holds |
 |---|---|
 | `Catalog.swift` | Scans the models folder: models, LoRAs, styles, sizes and sampler plans per model family. |
+| `Styles.swift` | The built-in looks, your `styles.json`, and the LoRA looks that are hidden. |
 | `Comfy.swift` | The ComfyUI client (queue, progress websocket, history, upload, cancel) and the workflow graphs. |
 | `Jobs.swift` | The background job queue, HUD progress, notifications, saving and history. |
 | `Views.swift` | The launcher surface. |

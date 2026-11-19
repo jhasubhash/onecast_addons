@@ -50,6 +50,29 @@ struct RootView: View {
     }
 
     var body: some View {
+        if presentation == .window {
+            content
+                .background(.background)
+                .pluginWindowCommands { commands() }
+                .task { await appear() }
+                .onChange(of: center.catalogLoaded) { _, _ in settle() }
+                .onChange(of: modelID) { _, _ in settle() }
+        } else {
+            scaffold
+                .task { await appear() }
+                .onChange(of: center.catalogLoaded) { _, _ in settle() }
+                .onChange(of: modelID) { _, _ in settle() }
+        }
+    }
+
+    private func appear() async {
+        restore()
+        if !center.catalogLoaded || catalog.models.isEmpty { center.refreshCatalog() }
+        try? await Task.sleep(nanoseconds: 120_000_000)
+        promptFocused = true
+    }
+
+    private var scaffold: some View {
         PluginScaffold(
             navigator: nav,
             primaryActionLabel: blocker == nil ? "Generate" : "",
@@ -64,8 +87,14 @@ struct RootView: View {
                 guard showAdvanced, !nav.canPop else { return false }
                 showAdvanced = false
                 return true
-            }
+            },
+            route: { PluginRoute(payload: [:], title: "ImageGen", icon: .symbol("photo.badge.plus")) }
         ) {
+            content
+        }
+    }
+
+    private var content: some View {
             VStack(spacing: 0) {
                 promptField
                 optionsBar
@@ -78,15 +107,6 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: drop)
             .overlay { if dropTargeted { dropOverlay } }
-        }
-        .task {
-            restore()
-            if !center.catalogLoaded || catalog.models.isEmpty { center.refreshCatalog() }
-            try? await Task.sleep(nanoseconds: 120_000_000)
-            promptFocused = true
-        }
-        .onChange(of: center.catalogLoaded) { _, _ in settle() }
-        .onChange(of: modelID) { _, _ in settle() }
     }
 
     // MARK: Prompt
@@ -102,6 +122,11 @@ struct RootView: View {
                 .font(.system(size: 17))
                 .lineLimit(2...6)
                 .focused($promptFocused)
+                .onKeyPress(.return, phases: .down) { press in
+                    guard presentation == .window, press.modifiers.isEmpty else { return .ignored }
+                    generate()
+                    return .handled
+                }
         }
         .padding(.horizontal, 18)
         .padding(.top, 16)
@@ -157,10 +182,15 @@ struct RootView: View {
             if !styles.isEmpty {
                 Menu {
                     Button("No Style" + (styleID == nil ? "  ✓" : "")) { styleID = nil }
-                    Divider()
-                    ForEach(styles) { s in
-                        Button(s.title + (s.id == styleID ? "  ✓" : "")) { styleID = s.id }
+                    ForEach(styleGroups, id: \.0) { title, items in
+                        Section(title) {
+                            ForEach(items) { s in
+                                Button(s.title + (s.id == styleID ? "  ✓" : "")) { styleID = s.id }
+                            }
+                        }
                     }
+                    Divider()
+                    Button("Edit Your Styles…") { editStyles() }
                 } label: {
                     Chip(icon: "paintpalette", text: style?.title ?? "Style")
                 }
@@ -186,6 +216,17 @@ struct RootView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    private var styleGroups: [(String, [StylePreset])] {
+        [("Your Styles", StylePreset.Group.custom), ("Looks", .look), ("LoRA Styles · \(model?.title ?? "")", .lora)]
+            .map { title, group in (title, styles.filter { $0.group == group }) }
+            .filter { !$0.1.isEmpty }
+    }
+
+    private func editStyles() {
+        NSWorkspace.shared.open(Styles.ensureCustomFile())
+        notice = "Save styles.json, then choose Refresh Model List (⌘K) to see your styles."
     }
 
     private var aspectIcon: String {
@@ -326,7 +367,8 @@ struct RootView: View {
         var uses = style?.loras ?? []
         if let loraID, !uses.contains(where: { $0.file == loraID }) { uses.append(LoraUse(file: loraID, strength: loraStrength)) }
         let request = GenerationRequest(
-            prompt: trimmed, negative: negative, modelID: model.id, modelTitle: model.title,
+            prompt: trimmed,
+            negative: [negative, style?.negative ?? ""].filter { !$0.isEmpty }.joined(separator: ", "), modelID: model.id, modelTitle: model.title,
             family: model.family, loader: model.loader, aspect: aspect,
             quality: qualities.contains(quality) ? quality : (qualities.first ?? .standard),
             draft: draft, styleID: style?.id, loras: uses, trigger: style?.trigger ?? "", suffix: style?.suffix ?? "",
@@ -335,7 +377,7 @@ struct RootView: View {
         center.enqueue(request)
         remember()
         notice = nil
-        if Settings.closeOnGenerate {
+        if Settings.closeOnGenerate && presentation != .window {
             closeLauncher()
         } else {
             prompt = ""
@@ -395,6 +437,8 @@ struct RootView: View {
         })
         list.append(PluginCommand(title: showAdvanced ? "Hide More Options" : "Show More Options",
                                   icon: .symbol("slider.horizontal.3")) { showAdvanced.toggle() })
+        list.append(PluginCommand(title: "Edit Your Styles", subtitle: "styles.json: name, before, after, avoid",
+                                  icon: .symbol("paintpalette")) { editStyles() })
         list.append(PluginCommand(title: "Refresh Model List", icon: .symbol("arrow.clockwise")) { center.refreshCatalog() })
         if center.jobs.contains(where: { !$0.isActive }) {
             list.append(PluginCommand(title: "Clear Finished from History", subtitle: "The images stay on disk",
@@ -614,6 +658,7 @@ struct IconButton: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .help(help)
+        .accessibilityLabel(help)
     }
 }
 

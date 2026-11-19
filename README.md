@@ -94,6 +94,18 @@ Threads are saved so you can come back to them, and a conversation can be popped
 window.</p>
 </td>
 </tr>
+<tr>
+<td valign="top">
+<img src="docs/screenshots/plugin-imagegen.png" alt="ImageGen">
+<p><b><a href="plugins/image-gen">ImageGen</a></b>: write a prompt, pick any local model, an aspect
+ratio, quality and style, and press Return. The image renders in the background through ComfyUI, with
+a progress ring in the HUD.</p>
+</td>
+<td valign="top">
+<p>When it's done, the HUD says so and a card opens it or shows it in Finder. Images save to a folder
+you set in its preferences.</p>
+</td>
+</tr>
 </table>
 
 `plugins/hello` is a small sample to start a new plugin from.

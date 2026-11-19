@@ -1,0 +1,70 @@
+{
+  "name": "ImageGen",
+  "identifier": "com.sujha.imagegen",
+  "subtitle": "Generate images with your local models",
+  "icon": "photo.badge.plus",
+  "preferences": [
+    {
+      "name": "outputFolder",
+      "title": "Save images to",
+      "type": "directory",
+      "default": "~/Pictures/ImageGen",
+      "description": "Each image is saved here as a PNG named by date and prompt."
+    },
+    {
+      "name": "showProgress",
+      "title": "Show progress in the HUD",
+      "type": "checkbox",
+      "default": true,
+      "description": "A pill with a filling ring and the time left while an image renders. Click it to cancel."
+    },
+    {
+      "name": "showCard",
+      "title": "Show a card when an image is ready",
+      "type": "checkbox",
+      "default": true,
+      "description": "With Open and Show in Finder. The HUD always says when it's done."
+    },
+    {
+      "name": "closeOnGenerate",
+      "title": "Close the launcher after Generate",
+      "type": "checkbox",
+      "default": true,
+      "description": "The image keeps rendering in the background either way."
+    },
+    {
+      "name": "safeMode",
+      "title": "Safe mode",
+      "type": "checkbox",
+      "default": true,
+      "description": "Adds nudity and explicit content to every negative prompt."
+    },
+    {
+      "name": "saveSettings",
+      "title": "Save settings beside each image",
+      "type": "checkbox",
+      "default": false,
+      "description": "A .json file with the prompt, model, seed and options, to recreate it later."
+    },
+    {
+      "name": "modelsFolder",
+      "title": "ComfyUI models folder",
+      "type": "directory",
+      "default": "~/Documents/comfyui/models",
+      "description": "Where to look for models: checkpoints, diffusion_models, unet, loras, text_encoders and vae."
+    },
+    {
+      "name": "serverURL",
+      "title": "ComfyUI address",
+      "type": "textfield",
+      "default": "http://127.0.0.1:8189"
+    },
+    {
+      "name": "startCommand",
+      "title": "Start ComfyUI with",
+      "type": "textfield",
+      "default": "python3 -I ~/Developer/jarvis/engine/comfy.py serve",
+      "description": "Run when ComfyUI isn't answering. ImageGen waits up to 4 minutes for it."
+    }
+  ]
+}

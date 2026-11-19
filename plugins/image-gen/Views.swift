@@ -545,7 +545,7 @@ struct RootView: View {
         if let text {
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
-                Text(text).lineLimit(3)
+                Text(text).lineLimit(2)
                 Spacer()
             }
             .font(.system(size: 12))
@@ -826,7 +826,7 @@ struct JobRow: View {
             Text(meta + (job.seconds.map { " · " + JobCenter.duration($0) } ?? "") + " · " + Self.ago(job.finished ?? job.created))
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         case .failed:
-            Text(job.error ?? "Failed").font(.system(size: 11)).foregroundStyle(.orange).lineLimit(3)
+            Text(job.error ?? "Failed").font(.system(size: 11)).foregroundStyle(.orange).lineLimit(2)
         case .cancelled:
             Text("Cancelled · " + meta).font(.system(size: 11)).foregroundStyle(.secondary)
         }
@@ -1016,7 +1016,7 @@ struct ChatItem: View {
                 .font(.system(size: 11)).foregroundStyle(.tertiary)
         case .failed:
             Label(job.error ?? "Failed", systemImage: "exclamationmark.triangle")
-                .font(.system(size: 11)).foregroundStyle(.orange).lineLimit(3)
+                .font(.system(size: 11)).foregroundStyle(.orange).lineLimit(2)
         case .cancelled:
             Label("Cancelled" + (job.outputs.isEmpty ? "" : " · \(job.outputs.count) kept"), systemImage: "xmark.circle")
                 .font(.system(size: 11)).foregroundStyle(.secondary)

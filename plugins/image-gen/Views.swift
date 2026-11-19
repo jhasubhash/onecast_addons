@@ -176,6 +176,10 @@ struct RootView: View {
 
     // MARK: Prompt
 
+    private var canSend: Bool {
+        blocker == nil && !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var promptField: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "sparkles")
@@ -192,6 +196,15 @@ struct RootView: View {
                     generate()
                     return .handled
                 }
+            Button(action: generate) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 24))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(canSend ? Color.accentColor : Color.secondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .help("Generate (↩)")
         }
         .padding(.horizontal, 18)
         .padding(.top, 16)
@@ -823,7 +836,7 @@ struct JobRow: View {
     private var actions: some View {
         HStack(spacing: 4) {
             if job.isActive {
-                IconButton(symbol: "stop.circle", help: "Cancel") { center.cancel(job.id) }
+                CancelJobButton { center.cancel(job.id) }
             } else {
                 if !job.outputs.isEmpty {
                     IconButton(symbol: "doc.on.doc", help: "Copy image") {
@@ -967,7 +980,7 @@ struct ChatItem: View {
             status
             HStack(spacing: 4) {
                 if job.isActive {
-                    IconButton(symbol: "stop.circle", help: "Cancel") { center.cancel(job.id) }
+                    CancelJobButton { center.cancel(job.id) }
                 } else {
                     if !job.outputs.isEmpty {
                         IconButton(symbol: "folder", help: "Show in Finder") {
@@ -1113,6 +1126,22 @@ private struct WindowReader: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async { found(nsView.window) }
+    }
+}
+
+/// A labelled Cancel, so stopping a render is as plain as starting one.
+struct CancelJobButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label("Cancel", systemImage: "stop.fill")
+                .font(.system(size: 11, weight: .medium))
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .background(Color.red.opacity(0.15), in: Capsule())
+                .foregroundStyle(.red)
+        }
+        .buttonStyle(.plain)
+        .help("Stop this job; images already finished are kept")
     }
 }
 

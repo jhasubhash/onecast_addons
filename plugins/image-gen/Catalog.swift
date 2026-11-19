@@ -88,8 +88,8 @@ struct ImageModel: Identifiable, Hashable, Sendable {
         let size = gb >= 1 ? String(format: "%.1f GB", gb) : String(format: "%.0f MB", gb * 1024)
         if let missing { return "Needs \(missing)" }
         switch family {
-        case .qwenImage: return "Qwen-Image · best text and detail · \(size)"
-        case .qwenImage2512: return "Newest Qwen · most realistic · \(size)"
+        case .qwenImage: return "Qwen-Image · text and detail; watercolour, ink and oil looks · \(size)"
+        case .qwenImage2512: return "Qwen-Image 2512 · realistic; Ghibli, 3D and film looks · \(size)"
         case .qwenEdit: return "Edits or restyles 1–3 reference images · \(size)"
         case .qwenImage21: return "Newest Qwen · creates, or edits up to 6 references · \(size)"
         case .fluxDev: return "FLUX.1 dev · rich detail and lighting · \(size)"

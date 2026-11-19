@@ -63,7 +63,7 @@ struct RootView: View {
 
     var body: some View {
         if presentation == .window {
-            content
+            windowContent
                 .background(.background)
                 .pluginWindowCommands { commands() }
                 .task { await appear() }
@@ -114,12 +114,64 @@ struct RootView: View {
                 if model?.needsReference == true || !references.isEmpty { referenceStrip }
                 statusLine
                 Divider().opacity(0.5)
-                ActivityList(center: center)
+                ActivityList(center: center, load: reuse)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onDrop(of: [.fileURL, .image], isTargeted: $dropTargeted, perform: drop)
             .overlay { if dropTargeted { dropOverlay } }
             .background(PasteCatcher { pasteReferences() })
+    }
+
+    /// The popped-out window reads like a chat: results flow down the window, newest at the bottom, and the
+    /// composer (references, prompt, options) sits at the bottom edge.
+    private var windowContent: some View {
+        VStack(spacing: 0) {
+            windowHeader
+            Divider().opacity(0.5)
+            ChatList(center: center, load: reuse, useAsReference: { addReferences([$0]) })
+            Divider().opacity(0.5)
+            VStack(spacing: 0) {
+                if showAdvanced { advanced.padding(.top, 10) }
+                if model?.needsReference == true || !references.isEmpty { referenceStrip.padding(.top, 10) }
+                promptField
+                optionsBar
+                statusLine
+            }
+            .background(Color.primary.opacity(0.03))
+        }
+        .frame(minWidth: 520, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
+        .onDrop(of: [.fileURL, .image], isTargeted: $dropTargeted, perform: drop)
+        .overlay { if dropTargeted { dropOverlay } }
+        .background(PasteCatcher { pasteReferences() })
+    }
+
+    /// A plain title bar: no controls, so the whole strip is background the window is dragged by.
+    private var windowHeader: some View {
+        ZStack {
+            WindowDragArea()
+            HStack(spacing: 6) {
+                Image(systemName: "photo.badge.plus").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("ImageGen").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                if let busy = activeSummary {
+                    Text("· " + busy).font(.system(size: 11)).foregroundStyle(.tertiary)
+                }
+            }
+            .allowsHitTesting(false)
+            HStack {
+                TrafficLights(close: closeLauncher)
+                Spacer()
+            }
+            .padding(.leading, 14)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 36)
+    }
+
+    private var activeSummary: String? {
+        let running = center.jobs.filter { $0.state == .running }.count
+        let queued = center.jobs.filter { $0.state == .queued }.count
+        let parts = [running > 0 ? "rendering" : nil, queued > 0 ? "\(queued) queued" : nil].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
     // MARK: Prompt
@@ -519,21 +571,46 @@ struct RootView: View {
     }
 
     /// Puts a past job's settings back in the form.
+    /// Puts a past job's prompt, references and settings back in the form to edit before running it again.
+    /// The seed is left random, so a run after an edit isn't tied to the old one.
     private func reuse(_ job: Job) {
         let r = job.request
         prompt = r.prompt
-        negative = r.negative
         modelID = r.modelID
         aspect = r.aspect
         quality = r.quality
         draft = r.draft
         styleID = r.styleID
         count = r.count
-        seedText = job.seeds.first.map(String.init) ?? ""
-        references = r.references.map { URL(fileURLWithPath: $0) }
+        seedText = ""
+        // The job's negative and LoRAs include the style's own; keep only what was added by hand.
+        let styleNegative = catalog.styles.first { $0.id == r.styleID }?.negative ?? ""
+        var own = r.negative
+        if !styleNegative.isEmpty, own.hasSuffix(styleNegative) {
+            own = String(own.dropLast(styleNegative.count)).trimmingCharacters(in: CharacterSet(charactersIn: ", "))
+        }
+        negative = own
+        let styleLoras = Set((catalog.styles.first { $0.id == r.styleID }?.loras ?? []).map(\.file))
+        if let extra = r.loras.first(where: { !styleLoras.contains($0.file) }) {
+            loraID = extra.file
+            loraStrength = extra.strength
+        } else {
+            loraID = nil
+        }
+        let files = r.references.map { URL(fileURLWithPath: $0) }
+        references = files.filter { FileManager.default.fileExists(atPath: $0.path) }
         if let m = r.referenceMode { referenceMode = m }
         if let v = r.strength { strength = v }
+        if !negative.isEmpty || loraID != nil { showAdvanced = true }
+        let missing = files.count - references.count
+        let note = missing > 0
+            ? "Loaded, but \(missing) reference image\(missing == 1 ? " is" : "s are") no longer on disk."
+            : "Loaded. Edit anything, then press Return to run it."
         promptFocused = true
+        Task { @MainActor in  // after the model change has settled, which clears the status line
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            notice = note
+        }
     }
 
     private func commands() -> [PluginCommand] {
@@ -639,6 +716,8 @@ struct RootView: View {
 
 struct ActivityList: View {
     let center: JobCenter
+    /// Loads a job's settings into the form.
+    let load: (Job) -> Void
 
     var body: some View {
         ScrollView {
@@ -653,7 +732,7 @@ struct ActivityList: View {
                     .padding(.top, 36)
                 } else {
                     ForEach(center.jobs) { job in
-                        JobRow(job: job, live: center.live[job.id], center: center)
+                        JobRow(job: job, live: center.live[job.id], center: center, load: load)
                         Divider().opacity(0.3).padding(.leading, 86)
                     }
                 }
@@ -668,6 +747,7 @@ struct JobRow: View {
     let job: Job
     let live: LiveProgress?
     let center: JobCenter
+    let load: (Job) -> Void
     @State private var hovered = false
 
     var body: some View {
@@ -755,10 +835,8 @@ struct JobRow: View {
                         NSWorkspace.shared.activateFileViewerSelecting(job.outputURLs)
                     }
                 }
-                IconButton(symbol: "arrow.clockwise", help: "Run again with a new seed") {
-                    var again = job.request
-                    again.seed = nil
-                    center.enqueue(again)
+                IconButton(symbol: "square.and.pencil", help: "Load this prompt, its references and settings to edit") {
+                    load(job)
                 }
                 IconButton(symbol: "xmark", help: "Remove from history (the files stay)") { center.remove(job.id) }
             }
@@ -769,6 +847,272 @@ struct JobRow: View {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
         return f.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - Chat (popped-out window)
+
+/// Every job as a chat exchange, oldest first: the prompt as the user's bubble on the right, the images (or the
+/// progress) below on the left. Keeps the newest in view as jobs arrive and finish.
+struct ChatList: View {
+    let center: JobCenter
+    let load: (Job) -> Void
+    let useAsReference: (URL) -> Void
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 22) {
+                    if center.jobs.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle.angled").font(.system(size: 34)).foregroundStyle(.tertiary)
+                            Text("Describe an image below and press Return. Your images appear here and keep rendering in the background.")
+                                .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: 380).frame(maxWidth: .infinity).padding(.top, 80)
+                    }
+                    ForEach(center.jobs.reversed()) { job in
+                        ChatItem(job: job, live: center.live[job.id], center: center, load: load, useAsReference: useAsReference)
+                            .id(job.id)
+                    }
+                    Color.clear.frame(height: 1).id("bottom")
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+            }
+            .onAppear { proxy.scrollTo("bottom", anchor: .bottom) }
+            .onChange(of: center.jobs.count) { _, _ in
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+            .onChange(of: center.jobs.first?.outputs.count) { _, _ in
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+        }
+    }
+}
+
+struct ChatItem: View {
+    let job: Job
+    let live: LiveProgress?
+    let center: JobCenter
+    let load: (Job) -> Void
+    let useAsReference: (URL) -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            request
+            result
+        }
+        .onHover { hovered = $0 }
+    }
+
+    /// The prompt bubble, with the references it used.
+    private var request: some View {
+        HStack {
+            Spacer(minLength: 80)
+            VStack(alignment: .trailing, spacing: 6) {
+                if !job.request.references.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(Array(job.request.references.enumerated()), id: \.offset) { index, path in
+                            Thumbnail(url: URL(fileURLWithPath: path), side: 34)
+                                .overlay(alignment: .bottomLeading) {
+                                    Text("\(index + 1)").font(.system(size: 9, weight: .bold))
+                                        .frame(minWidth: 13, minHeight: 13)
+                                        .background(.black.opacity(0.65), in: Circle()).foregroundStyle(.white).padding(2)
+                                }
+                        }
+                    }
+                }
+                Text(job.request.prompt)
+                    .font(.system(size: 13))
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(Color.accentColor.opacity(0.16), in: RoundedRectangle(cornerRadius: 14))
+                Text(meta).font(.system(size: 10)).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var meta: String {
+        let r = job.request
+        return [r.modelTitle, r.aspect.rawValue, r.mode.map { $0.label }, JobRow.ago(job.created)].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private var result: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !job.outputs.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 8) {
+                        ForEach(job.outputURLs, id: \.self) { url in
+                            ResultImage(url: url, height: 260)
+                                .onTapGesture { NSWorkspace.shared.open(url) }
+                                .help("Click to open")
+                                .contextMenu {
+                                    Button("Open") { NSWorkspace.shared.open(url) }
+                                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                                    Button("Copy Image") {
+                                        let pb = NSPasteboard.general
+                                        pb.clearContents()
+                                        if let image = NSImage(contentsOf: url) { pb.writeObjects([image]) }
+                                    }
+                                    Divider()
+                                    Button("Use as Reference") { useAsReference(url) }
+                                }
+                        }
+                    }
+                }
+            }
+            status
+            HStack(spacing: 4) {
+                if job.isActive {
+                    IconButton(symbol: "stop.circle", help: "Cancel") { center.cancel(job.id) }
+                } else {
+                    if !job.outputs.isEmpty {
+                        IconButton(symbol: "folder", help: "Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting(job.outputURLs)
+                        }
+                    }
+                    IconButton(symbol: "square.and.pencil", help: "Load this prompt, its references and settings to edit") { load(job) }
+                    IconButton(symbol: "xmark", help: "Remove from history (the files stay)") { center.remove(job.id) }
+                }
+            }
+            .opacity(hovered || job.isActive ? 1 : 0)
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        switch job.state {
+        case .running:
+            VStack(alignment: .leading, spacing: 4) {
+                if let fraction = live?.fraction {
+                    ProgressView(value: fraction).progressViewStyle(.linear).frame(maxWidth: 260)
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+                Text([live?.phase ?? "Starting", live?.remaining.map { JobCenter.duration($0) + " left" }]
+                    .compactMap { $0 }.joined(separator: " · "))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        case .queued:
+            Label("Queued", systemImage: "clock").font(.system(size: 11)).foregroundStyle(.secondary)
+        case .done:
+            Text("\(job.outputs.count) image\(job.outputs.count == 1 ? "" : "s")" + (job.seconds.map { " · " + JobCenter.duration($0) } ?? ""))
+                .font(.system(size: 11)).foregroundStyle(.tertiary)
+        case .failed:
+            Label(job.error ?? "Failed", systemImage: "exclamationmark.triangle")
+                .font(.system(size: 11)).foregroundStyle(.orange).lineLimit(3)
+        case .cancelled:
+            Label("Cancelled" + (job.outputs.isEmpty ? "" : " · \(job.outputs.count) kept"), systemImage: "xmark.circle")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// A finished image at its own shape, a fixed height, decoded small and cached.
+struct ResultImage: View {
+    let url: URL
+    let height: CGFloat
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
+            } else {
+                Color.primary.opacity(0.06).aspectRatio(9 / 16, contentMode: .fit)
+            }
+        }
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
+        .task(id: url) { image = await ThumbnailCache.shared.image(url, pixels: Int(height * 2.2)) }
+    }
+}
+
+// MARK: - Window buttons
+
+/// Close, minimise and zoom, drawn like the system's own, for the borderless pop-out window.
+struct TrafficLights: View {
+    let close: () -> Void
+    @State private var hovered = false
+    @State private var window: NSWindow?
+    @State private var restoreFrame: NSRect?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            light(.init(red: 1, green: 0.37, blue: 0.34), symbol: "xmark", help: "Close") { close() }
+            light(.init(red: 1, green: 0.74, blue: 0.18), symbol: "minus", help: "Minimise") { minimise() }
+            light(.init(red: 0.16, green: 0.79, blue: 0.25), symbol: "arrow.up.left.and.arrow.down.right", help: "Zoom") { zoom() }
+        }
+        .onHover { hovered = $0 }
+        .background(WindowReader { window = $0 })
+    }
+
+    private func light(_ color: Color, symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Circle()
+                .fill(color)
+                .overlay(Circle().strokeBorder(.black.opacity(0.18), lineWidth: 0.5))
+                .overlay {
+                    if hovered {
+                        Image(systemName: symbol).font(.system(size: 7, weight: .heavy)).foregroundStyle(.black.opacity(0.6))
+                    }
+                }
+                .frame(width: 12, height: 12)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private func minimise() {
+        guard let window else { return }
+        // A borderless window can't miniaturise until it's allowed to.
+        window.styleMask.insert(.miniaturizable)
+        window.miniaturize(nil)
+    }
+
+    /// Fills the screen's visible area; a second press puts it back where it was.
+    private func zoom() {
+        guard let window, let screen = window.screen ?? NSScreen.main else { return }
+        if let restoreFrame, window.frame == screen.visibleFrame {
+            window.setFrame(restoreFrame, display: true, animate: true)
+            self.restoreFrame = nil
+        } else {
+            restoreFrame = window.frame
+            window.setFrame(screen.visibleFrame, display: true, animate: true)
+        }
+    }
+}
+
+/// A press anywhere on it drags the window, as a title bar does.
+private struct WindowDragArea: NSViewRepresentable {
+    final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+    }
+
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+/// Hands back the NSWindow a view is in.
+private struct WindowReader: NSViewRepresentable {
+    let found: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { found(view.window) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { found(nsView.window) }
     }
 }
 
@@ -888,3 +1232,5 @@ struct PasteCatcher: NSViewRepresentable {
         var paste: () -> Bool = { false }
     }
 }
+
+// Window layout: see README, "Popped-out window".

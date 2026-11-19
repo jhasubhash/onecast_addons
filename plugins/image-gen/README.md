@@ -20,7 +20,8 @@ the HUD says so and a card offers **Open** and **Show in Finder**.
   there too, without closing it.
 - Your last choices are remembered.
 - Reopen ImageGen at any time to see what's queued, rendering, done or failed. Click a finished row to
-  open it; hover for Copy, Show in Finder, Run Again (new seed) and Remove.
+  open it; hover for Copy, Show in Finder, **Load** (puts the prompt, references and settings back in the form
+  to edit, without running) and Remove.
 - **⌘K** has Cancel, Reuse Last Settings, Open Output Folder, Refresh Model List, Clear Finished and
   Open ComfyUI in Browser.
 - **Reference images:** click **Reference** (or the **+** tile), paste a picture with **⌘V** (a
@@ -81,3 +82,9 @@ It also waits while a Jarvis video render holds the GPU memory.
 | `ImageGen.swift` | The plugin entry point. |
 
 Needs OneCast with the plugin HUD API (`showHUD`, `showHUDProgress`) and `pluginCloseLauncher`.
+
+## Popped-out window
+
+Popped out, ImageGen reads like a chat: each prompt is a bubble with its references, its images follow it
+(click one to open it; right-click to copy it or use it as a reference), the newest is at the bottom, and the
+prompt box, references and options sit at the bottom edge.

@@ -66,9 +66,18 @@ enum Workflow {
     ) -> [String: Any] {
         let (w, h) = r.aspect.size(for: r.family, draft: r.draft)
         let plan = SamplerPlan.plan(r.family, r.quality, catalog: catalog)
-        let positive = [r.trigger.trimmingCharacters(in: .whitespaces), r.prompt.trimmingCharacters(in: .whitespacesAndNewlines)]
-            .filter { !$0.isEmpty }.joined(separator: ", ")
-            + (r.suffix.trimmingCharacters(in: .whitespaces).isEmpty ? "" : " " + r.suffix.trimmingCharacters(in: .whitespaces))
+        let trigger = r.trigger.trimmingCharacters(in: CharacterSet(charactersIn: " ,"))
+        let suffix = r.suffix.trimmingCharacters(in: .whitespaces)
+        let instruction = r.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let positive: String
+        if r.mode == .edit {
+            // An edit is an instruction: a style put in front ("cinematic film still, make the woman…") turns it into a
+            // new scene (a crowd, a collage). The style follows as a rendering note instead. LoRA triggers stay in front.
+            let look = [trigger, suffix].filter { !$0.isEmpty }.joined(separator: ", ")
+            positive = instruction + (look.isEmpty || !r.loras.isEmpty ? "" : "\n\nRender the result as: \(look).")
+        } else {
+            positive = [trigger, instruction].filter { !$0.isEmpty }.joined(separator: ", ") + (suffix.isEmpty ? "" : " " + suffix)
+        }
         let negative = Negative.text(user: r.negative, safe: r.safe)
         var g: [String: Any]
         switch r.family {

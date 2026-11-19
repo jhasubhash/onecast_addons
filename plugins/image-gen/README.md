@@ -23,15 +23,34 @@ the HUD says so and a card offers **Open** and **Show in Finder**.
   open it; hover for Copy, Show in Finder, Run Again (new seed) and Remove.
 - **⌘K** has Cancel, Reuse Last Settings, Open Output Folder, Refresh Model List, Clear Finished and
   Open ComfyUI in Browser.
-- **Qwen-Image-Edit** restyles or edits 1–3 reference images: drop them on the window, or select them
-  in Finder before opening ImageGen.
+- **Reference images:** click **Reference** (or the **+** tile), paste a picture with **⌘V** (a
+  screenshot, Copy Image in a browser, or image files copied in Finder), drop files or browser images
+  on the window, or select images in Finder before opening ImageGen. How they're used depends on the
+  model:
+  - **Edit** (Qwen-Image 2.1 up to 6, FLUX.1 Kontext up to 3): the prompt says what to change or how
+    to combine them. One picture keeps its own size; several are drawn at the chosen ratio.
+  - **Variation** (every other model): image-to-image from the first reference. **Change** sets how far
+    it moves: low stays close, high only keeps the layout and colours.
+  - **Style** and **Face** (SDXL, with IP-Adapter): borrow the reference's look and subject, or keep a
+    person's face, in a new picture the prompt describes. **Strength** sets how much.
 
 ## Models
 
-ImageGen lists every image model under the models folder: Qwen-Image, Qwen-Image 2512 and
-Qwen-Image-Edit (GGUF or safetensors), and SDXL / SDXL Turbo / SD 1.5 checkpoints. Video models are
-left out. LoRAs show only for the base they were trained on, and LoRA styles come from the Jarvis
-`looks.json` presets (the clay looks are left out). A Qwen speed LoRA (Lightning) is used for Fast and Standard when present.
+ImageGen lists every image model under the models folder:
+
+| Model | Good for |
+|---|---|
+| Qwen-Image 2.1 | The newest Qwen: creates, and edits up to 6 references. Fast uses its 8-step LoRA. |
+| Qwen-Image 2512, Qwen-Image | Detail and text; the LoRA looks. |
+| FLUX.1 dev | Rich detail and lighting. |
+| FLUX.1 schnell | Good images in 4 steps. |
+| FLUX.1 Kontext | Edits 1–3 reference images. |
+| SDXL (Juggernaut XI) | Photoreal and general; Style and Face references through IP-Adapter. |
+
+Qwen-Image-Edit 2509 is only offered when Qwen-Image 2.1 isn't installed. SDXL checkpoints are found
+by their contents, not their names. Video models are left out. LoRAs show only for the base they were
+trained on, and LoRA styles come from the Jarvis `looks.json` presets (the clay looks are left out).
+Qwen-Image 2.1 and FLUX.1 dev and Kontext are licensed for non-commercial use.
 
 ## Settings (Settings → Plugins → ImageGen)
 

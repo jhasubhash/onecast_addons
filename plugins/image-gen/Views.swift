@@ -24,6 +24,8 @@ struct RootView: View {
     @State private var seedText = ""
     @State private var count = 1
     @State private var references: [URL] = []
+    @State private var referenceMode: ReferenceMode = .variation
+    @State private var strength = 0.7
     @State private var showAdvanced = false
     @State private var dropTargeted = false
     @State private var notice: String?
@@ -38,13 +40,23 @@ struct RootView: View {
     private var loras: [LoraFile] { catalog.loras(for: family) }
     private var qualities: [Quality] { SamplerPlan.qualities(family, catalog: catalog) }
     private var trimmed: String { prompt.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var modes: [ReferenceMode] { family.referenceModes }
+    /// The mode in effect: the chosen one when this model has it, else the model's own.
+    private var mode: ReferenceMode { modes.contains(referenceMode) ? referenceMode : (modes.first ?? .variation) }
+    private var maxReferences: Int { family.maxReferences(mode) }
+    static let referenceLimit = 6
 
     /// Why Generate can't run now, if it can't.
     private var blocker: String? {
         guard center.catalogLoaded else { return "Reading your models…" }
         guard let model else { return "No image models found in \(Settings.modelsFolder.path)." }
         if let missing = model.missing { return "\(model.title) needs \(missing)." }
-        if model.needsReference && references.isEmpty { return "Add 1 to 3 reference images to edit (drop them here)." }
+        if model.needsReference && references.isEmpty {
+            return "\(model.title) edits pictures: add 1 to 3 with +, ⌘V or by dropping them here."
+        }
+        if !references.isEmpty, mode == .style || mode == .face, !catalog.ipAdapter {
+            return "IP-Adapter isn't installed (ComfyUI_IPAdapter_plus and its SDXL models)."
+        }
         if trimmed.isEmpty { return "" }
         return nil
     }
@@ -105,8 +117,9 @@ struct RootView: View {
                 ActivityList(center: center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: drop)
+            .onDrop(of: [.fileURL, .image], isTargeted: $dropTargeted, perform: drop)
             .overlay { if dropTargeted { dropOverlay } }
+            .background(PasteCatcher { pasteReferences() })
     }
 
     // MARK: Prompt
@@ -206,6 +219,13 @@ struct RootView: View {
             }
             .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
 
+            Button { pickReferences() } label: {
+                Chip(icon: "photo.on.rectangle", text: references.isEmpty ? "Reference" : "\(references.count) Ref",
+                     active: !references.isEmpty)
+            }
+            .buttonStyle(.plain)
+            .help("Add reference images: click to choose, or paste (⌘V) or drop them here")
+
             Spacer(minLength: 0)
 
             Button { withAnimation(.easeOut(duration: 0.15)) { showAdvanced.toggle() } } label: {
@@ -279,34 +299,97 @@ struct RootView: View {
     // MARK: References
 
     private var referenceStrip: some View {
-        HStack(spacing: 8) {
-            ForEach(references, id: \.self) { url in
-                ZStack(alignment: .topTrailing) {
-                    Thumbnail(url: url, side: 52)
-                    Button { references.removeAll { $0 == url } } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 13))
-                            .foregroundStyle(.white, .black.opacity(0.6))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach(Array(references.enumerated()), id: \.element) { index, url in
+                    ZStack(alignment: .topTrailing) {
+                        Thumbnail(url: url, side: 52)
+                            .opacity(index < maxReferences ? 1 : 0.35)
+                            .overlay(alignment: .bottomLeading) {
+                                // The number the prompt refers to ("the woman in image 1")
+                                Text("\(index + 1)").font(.system(size: 10, weight: .bold)).monospacedDigit()
+                                    .frame(minWidth: 16, minHeight: 16)
+                                    .background(.black.opacity(0.65), in: Circle()).foregroundStyle(.white)
+                                    .padding(3)
+                            }
+                            .help(index < maxReferences
+                                  ? "Image \(index + 1): \(url.lastPathComponent) · right-click to reorder"
+                                  : "Not used: \(model?.title ?? "") reads \(maxReferences)")
+                            .contextMenu {
+                                if index > 0 {
+                                    Button("Make Image 1") { moveReference(url, to: 0) }
+                                    Button("Move Left") { moveReference(url, to: index - 1) }
+                                }
+                                if index < references.count - 1 {
+                                    Button("Move Right") { moveReference(url, to: index + 1) }
+                                }
+                                if references.count == 2 {
+                                    Button("Swap Images 1 and 2") { references.swapAt(0, 1) }
+                                }
+                                Divider()
+                                Button("Remove") { references.removeAll { $0 == url } }
+                            }
+                        Button { references.removeAll { $0 == url } } label: {
+                            Image(systemName: "xmark.circle.fill").font(.system(size: 13))
+                                .foregroundStyle(.white, .black.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                        .offset(x: 4, y: -4)
+                        .accessibilityLabel("Remove reference")
+                    }
+                }
+                if references.count < Self.referenceLimit {
+                    Button { pickReferences() } label: {
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4]))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 52, height: 52)
+                            .overlay(Image(systemName: "plus").foregroundStyle(.secondary))
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .offset(x: 4, y: -4)
+                    .help("Choose images · or paste (⌘V) or drop them here")
+                    .accessibilityLabel("Add reference image")
                 }
+                if !references.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if modes.count > 1 {
+                            Picker("", selection: $referenceMode) {
+                                ForEach(modes) { m in Text(m.label).tag(m) }
+                            }
+                            .pickerStyle(.segmented).labelsHidden().fixedSize()
+                        }
+                        if mode != .edit {
+                            HStack(spacing: 6) {
+                                Text(mode == .variation ? "Change" : "Strength").foregroundStyle(.secondary)
+                                Slider(value: $strength, in: mode == .variation ? 0.15...0.95 : 0.2...1.2).frame(width: 130)
+                                Text(String(format: "%.2f", strength)).monospacedDigit().foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .font(.system(size: 12))
+                }
+                Spacer(minLength: 0)
             }
-            if references.count < 3 {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4]))
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 52, height: 52)
-                    .overlay(Image(systemName: "plus").foregroundStyle(.tertiary))
-                    .help("Drop images here, or select them in Finder before opening ImageGen")
-            }
-            Text(model?.needsReference == true
-                 ? "Reference images: \(model?.title ?? "") restyles or edits these."
-                 : "Reference images are only used by Qwen-Image-Edit.")
-                .font(.system(size: 12)).foregroundStyle(.secondary)
-            Spacer()
+            Text(referenceCaption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 10)
+    }
+
+    private var referenceCaption: String {
+        if references.isEmpty {
+            return "\(model?.title ?? "This model") edits the pictures you add: + to choose, ⌘V to paste, or drop them here."
+        }
+        var text = mode.help
+        if mode == .edit && references.count > 1 {
+            text += " Name them by number, e.g. \"the woman from image 1 wearing the outfit of image 2\"."
+        }
+        if mode == .edit { text += references.count == 1 ? " One picture keeps its own size." : " Drawn at \(aspect.rawValue)." }
+        if references.count > maxReferences {
+            text += " \(model?.title ?? "") reads the first \(maxReferences == 1 ? "one" : String(maxReferences))."
+        }
+        return text
     }
 
     private var dropOverlay: some View {
@@ -320,19 +403,69 @@ struct RootView: View {
 
     private func drop(_ providers: [NSItemProvider]) -> Bool {
         for provider in providers {
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                guard let url, Self.isImage(url) else { return }
-                Task { @MainActor in addReferences([url]) }
+            if provider.canLoadObject(ofClass: URL.self) {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL, Self.isImage(url) else { return }
+                    Task { @MainActor in addReferences([url]) }
+                }
+            } else if provider.canLoadObject(ofClass: NSImage.self) {  // an image dragged from a browser
+                _ = provider.loadObject(ofClass: NSImage.self) { image, _ in
+                    guard let image = image as? NSImage else { return }
+                    Task { @MainActor in if let url = Self.savePasted(image) { addReferences([url]) } }
+                }
             }
         }
         return true
     }
 
     private func addReferences(_ urls: [URL]) {
-        for url in urls where !references.contains(url) && references.count < 3 { references.append(url) }
-        if let edit = catalog.models.first(where: { $0.needsReference && $0.usable }), model?.needsReference != true {
-            notice = "Reference images need \(edit.title): pick it in the model menu (⌘K › Edit Reference Images)."
+        for url in urls where !references.contains(url) && references.count < Self.referenceLimit { references.append(url) }
+        notice = nil
+    }
+
+    private func moveReference(_ url: URL, to index: Int) {
+        guard let from = references.firstIndex(of: url) else { return }
+        references.remove(at: from)
+        references.insert(url, at: min(max(index, 0), references.count))
+    }
+
+    private func pickReferences() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.message = "Choose up to \(Self.referenceLimit - references.count) reference images"
+        panel.prompt = "Add"
+        guard panel.runModal() == .OK else { return }
+        addReferences(panel.urls)
+    }
+
+    /// ⌘V with a picture on the clipboard: image files copied in Finder, or image data (a screenshot,
+    /// Copy Image in a browser). Copied text is left to the prompt field. Returns whether it took it.
+    private func pasteReferences() -> Bool {
+        let pb = NSPasteboard.general
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] {
+            let images = urls.filter(Self.isImage)
+            if !images.isEmpty { addReferences(images); return true }
+            if !urls.isEmpty { return false }
         }
+        guard pb.string(forType: .string) == nil, let image = NSImage(pasteboard: pb), let url = Self.savePasted(image)
+        else { return false }
+        addReferences([url])
+        return true
+    }
+
+    /// Pasted pictures are kept as PNGs in the plugin's data folder (pasted/), so a job can reuse them.
+    static func savePasted(_ image: NSImage) -> URL? {
+        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+            let png = rep.representation(using: .png, properties: [:])
+        else { return nil }
+        let folder = Styles.customFile.deletingLastPathComponent().appendingPathComponent("pasted")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd-HHmmss"
+        let url = folder.appendingPathComponent("pasted-\(f.string(from: Date()))-\(UUID().uuidString.prefix(4)).png")
+        return (try? png.write(to: url)) == nil ? nil : url
     }
 
     static func isImage(_ url: URL) -> Bool {
@@ -373,7 +506,8 @@ struct RootView: View {
             quality: qualities.contains(quality) ? quality : (qualities.first ?? .standard),
             draft: draft, styleID: style?.id, loras: uses, trigger: style?.trigger ?? "", suffix: style?.suffix ?? "",
             seed: Int(seedText.trimmingCharacters(in: .whitespaces)), count: count,
-            references: model.needsReference ? references.map(\.path) : [], safe: Settings.safeMode)
+            references: references.prefix(maxReferences).map(\.path), safe: Settings.safeMode,
+            referenceMode: references.isEmpty ? nil : mode, strength: references.isEmpty || mode == .edit ? nil : strength)
         center.enqueue(request)
         remember()
         notice = nil
@@ -397,6 +531,8 @@ struct RootView: View {
         count = r.count
         seedText = job.seeds.first.map(String.init) ?? ""
         references = r.references.map { URL(fileURLWithPath: $0) }
+        if let m = r.referenceMode { referenceMode = m }
+        if let v = r.strength { strength = v }
         promptFocused = true
     }
 
@@ -423,9 +559,17 @@ struct RootView: View {
                                       subtitle: finderImages.map(\.lastPathComponent).joined(separator: ", "),
                                       icon: .symbol("photo.on.rectangle")) { addReferences(finderImages) })
         }
-        if let edit = catalog.models.first(where: { $0.needsReference && $0.usable }), model?.id != edit.id {
+        list.append(PluginCommand(title: "Add Reference Images…", subtitle: "Or paste (⌘V) or drop them here",
+                                  icon: .symbol("photo.on.rectangle")) { pickReferences() })
+        if let edit = catalog.models.first(where: { $0.family == .qwenImage21 && $0.usable })
+            ?? catalog.models.first(where: { $0.needsReference && $0.usable }), model?.id != edit.id {
             list.append(PluginCommand(title: "Edit Reference Images", subtitle: "Switch to \(edit.title)",
                                       icon: .symbol("wand.and.stars")) { modelID = edit.id })
+        }
+        if references.count == 2 {
+            list.append(PluginCommand(title: "Swap Reference Images 1 and 2", icon: .symbol("arrow.left.arrow.right")) {
+                references.swapAt(0, 1)
+            })
         }
         if !references.isEmpty {
             list.append(PluginCommand(title: "Clear References", icon: .symbol("xmark.circle")) { references = [] })
@@ -459,7 +603,9 @@ struct RootView: View {
         styleID = Settings.remembered("style")
         draft = Settings.remembered("draft") == "true"
         count = Settings.remembered("count").flatMap(Int.init) ?? 1
-        let selected = finderImages.prefix(3)
+        referenceMode = Settings.remembered("referenceMode").flatMap(ReferenceMode.init(rawValue:)) ?? .variation
+        strength = Settings.remembered("strength").flatMap(Double.init) ?? 0.7
+        let selected = finderImages.prefix(Self.referenceLimit)
         if !selected.isEmpty, references.isEmpty { references = Array(selected) }
     }
 
@@ -470,6 +616,8 @@ struct RootView: View {
         Settings.remember(styleID, "style")
         Settings.remember(draft ? "true" : "false", "draft")
         Settings.remember(String(count), "count")
+        Settings.remember(referenceMode.rawValue, "referenceMode")
+        Settings.remember(String(strength), "strength")
     }
 
     /// Keeps the choices valid for the model on screen: a style or LoRA from another base is dropped,
@@ -481,7 +629,7 @@ struct RootView: View {
         if let loraID, !loras.contains(where: { $0.id == loraID }) { self.loraID = nil }
         if !qualities.contains(quality) { quality = qualities.contains(.standard) ? .standard : (qualities.first ?? .standard) }
         if model?.needsReference == true, references.isEmpty, !finderImages.isEmpty {
-            references = Array(finderImages.prefix(3))
+            references = Array(finderImages.prefix(Self.referenceLimit))
         }
         notice = nil
     }
@@ -701,5 +849,42 @@ final class ThumbnailCache: @unchecked Sendable {
         }.value
         if let made { cache.setObject(made, forKey: key) }
         return made
+    }
+}
+
+// MARK: - Paste
+
+/// Catches ⌘V in this view's window before the text field does, so a picture on the clipboard
+/// becomes a reference. `paste` returns false to let the key through (copied text goes to the prompt).
+struct PasteCatcher: NSViewRepresentable {
+    let paste: () -> Bool
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.view = view
+        context.coordinator.paste = paste
+        context.coordinator.monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak coordinator = context.coordinator] event in
+            guard let coordinator, let window = coordinator.view?.window, event.window === window,
+                event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                event.charactersIgnoringModifiers?.lowercased() == "v"
+            else { return event }
+            return coordinator.paste() ? nil : event
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) { context.coordinator.paste = paste }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        if let monitor = coordinator.monitor { NSEvent.removeMonitor(monitor) }
+        coordinator.monitor = nil
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        weak var view: NSView?
+        var monitor: Any?
+        var paste: () -> Bool = { false }
     }
 }

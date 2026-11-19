@@ -19,6 +19,16 @@ struct GenerationRequest: Codable, Hashable, Sendable {
     var count: Int
     var references: [String]
     var safe: Bool
+    /// How the references are used (nil in jobs saved before modes existed: the model's own way).
+    var referenceMode: ReferenceMode? = nil
+    /// Variation: how far to move from the reference (denoise); Style and Face: the IP-Adapter weight.
+    var strength: Double? = nil
+
+    var mode: ReferenceMode? {
+        guard !references.isEmpty else { return nil }
+        if let referenceMode, family.referenceModes.contains(referenceMode) { return referenceMode }
+        return family.referenceModes.first
+    }
 }
 
 enum ComfyError: LocalizedError {
@@ -60,14 +70,60 @@ enum Workflow {
             .filter { !$0.isEmpty }.joined(separator: ", ")
             + (r.suffix.trimmingCharacters(in: .whitespaces).isEmpty ? "" : " " + r.suffix.trimmingCharacters(in: .whitespaces))
         let negative = Negative.text(user: r.negative, safe: r.safe)
+        var g: [String: Any]
         switch r.family {
         case .qwenImage, .qwenImage2512:
-            return qwen(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed, catalog: catalog, prefix: prefix)
+            g = qwen(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed, catalog: catalog, prefix: prefix)
         case .qwenEdit:
-            return qwenEdit(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed,
-                            catalog: catalog, references: referenceNames, prefix: prefix)
+            g = qwenEdit(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed,
+                         catalog: catalog, references: referenceNames, prefix: prefix)
+        case .qwenImage21:
+            g = qwen21(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed,
+                       catalog: catalog, references: referenceNames, prefix: prefix)
+        case .fluxDev, .fluxSchnell, .fluxKontext:
+            g = flux(r, w: w, h: h, plan: plan, positive: positive, seed: seed, catalog: catalog,
+                     references: referenceNames, prefix: prefix)
         case .sdxl, .sdxlTurbo, .sd15:
-            return checkpoint(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed, prefix: prefix)
+            g = checkpoint(r, w: w, h: h, plan: plan, positive: positive, negative: negative, seed: seed, prefix: prefix)
+        }
+        guard let first = referenceNames.first else { return g }
+        switch r.mode {
+        case .variation:
+            // Image-to-image: the reference, cropped to the chosen size, is the starting latent.
+            g["30"] = ["class_type": "LoadImage", "inputs": ["image": first]]
+            g["31"] = ["class_type": "ImageScale", "inputs": [
+                "image": ["30", 0], "upscale_method": "lanczos", "width": w, "height": h, "crop": "center"] as [String: Any]]
+            g["32"] = ["class_type": "VAEEncode", "inputs": ["pixels": ["31", 0], "vae": vaeRef(r.family)] as [String: Any]]
+            var k = g["9"] as! [String: Any]
+            var inputs = k["inputs"] as! [String: Any]
+            inputs["latent_image"] = ["32", 0]
+            inputs["denoise"] = min(max(r.strength ?? 0.6, 0.1), 1)
+            k["inputs"] = inputs
+            g["9"] = k
+        case .style, .face:
+            g["30"] = ["class_type": "LoadImage", "inputs": ["image": first]]
+            g["40"] = ["class_type": "IPAdapterUnifiedLoader", "inputs": [
+                "model": ["1", 0], "preset": r.mode == .face ? "PLUS FACE (portraits)" : "PLUS (high strength)"] as [String: Any]]
+            g["41"] = ["class_type": "IPAdapterAdvanced", "inputs": [
+                "model": ["40", 0], "ipadapter": ["40", 1], "image": ["30", 0], "weight": r.strength ?? 0.8,
+                "weight_type": r.mode == .face ? "linear" : "style transfer", "combine_embeds": "concat",
+                "start_at": 0.0, "end_at": 1.0, "embeds_scaling": "V only"] as [String: Any]]
+            var k = g["9"] as! [String: Any]
+            var inputs = k["inputs"] as! [String: Any]
+            inputs["model"] = ["41", 0]
+            k["inputs"] = inputs
+            g["9"] = k
+        case .edit, nil:
+            break
+        }
+        return g
+    }
+
+    /// The node and output holding each family's VAE.
+    private static func vaeRef(_ family: ModelFamily) -> [Any] {
+        switch family {
+        case .sdxl, .sdxlTurbo, .sd15: ["1", 2]
+        default: ["3", 0]
         }
     }
 
@@ -140,6 +196,91 @@ enum Workflow {
         g["6"] = ["class_type": "TextEncodeQwenImageEditPlus", "inputs": pos]
         g["7"] = ["class_type": "TextEncodeQwenImageEditPlus", "inputs": neg]
         return g
+    }
+
+    /// Qwen-Image 2.1 (ComfyUI's own template): one encoder node takes the prompt, the negative and up
+    /// to 16 references; with references its latent matches the first one, as edits need.
+    private static func qwen21(
+        _ r: GenerationRequest, w: Int, h: Int, plan: SamplerPlan, positive: String, negative: String,
+        seed: Int, catalog: Catalog, references: [String], prefix: String
+    ) -> [String: Any] {
+        let editing = r.mode == .edit && !references.isEmpty
+        // One picture is edited at its own size (any other size shifts it); several are combined at the chosen ratio.
+        let keepSize = editing && references.count == 1
+        let model = plan.speedLora == nil ? "1" : "4"
+        var encode: [String: Any] = ["clip": ["2", 0], "prompt": positive, "negative_prompt": negative,
+                                     "vae": ["3", 0], "resolution": 1024]
+        var g: [String: Any] = [
+            "1": unet(r),
+            "2": ["class_type": "CLIPLoader", "inputs": ["clip_name": catalog.qwen21TextEncoder ?? "", "type": "qwen_image"]],
+            "3": ["class_type": "VAELoader", "inputs": ["vae_name": catalog.qwen21VAE ?? ""]],
+            "8": ["class_type": "EmptyLatentImage", "inputs": ["width": w, "height": h, "batch_size": 1]],
+            "9": ["class_type": "KSampler", "inputs": [
+                "model": [model, 0], "positive": ["6", 0], "negative": ["6", 1], "latent_image": [keepSize ? "6" : "8", keepSize ? 2 : 0],
+                "seed": seed, "steps": plan.steps, "cfg": plan.cfg, "sampler_name": plan.sampler,
+                "scheduler": plan.scheduler, "denoise": 1.0] as [String: Any]],
+            "10": ["class_type": "VAEDecode", "inputs": ["samples": ["9", 0], "vae": ["3", 0]]],
+            "11": ["class_type": "SaveImage", "inputs": ["images": ["10", 0], "filename_prefix": prefix] as [String: Any]],
+        ]
+        if let lora = plan.speedLora {
+            g["4"] = ["class_type": "LoraLoaderModelOnly", "inputs": [
+                "model": ["1", 0], "lora_name": lora, "strength_model": 1.0] as [String: Any]]
+        }
+        if editing {
+            for (n, name) in references.prefix(r.family.maxReferences(.edit)).enumerated() {
+                g["2\(n + 1)"] = ["class_type": "LoadImage", "inputs": ["image": name]]
+                encode["images.image_\(n + 1)"] = ["2\(n + 1)", 0]
+            }
+        }
+        g["6"] = ["class_type": "TextEncodeQwenImage21", "inputs": encode]
+        return g
+    }
+
+    /// FLUX.1 dev, schnell and Kontext (ComfyUI's templates): CLIP-L + T5, no negative prompt (zeroed),
+    /// distilled guidance for dev and Kontext. Kontext reads each reference as a ReferenceLatent and
+    /// draws at the first one's size.
+    private static func flux(
+        _ r: GenerationRequest, w: Int, h: Int, plan: SamplerPlan, positive: String, seed: Int,
+        catalog: Catalog, references: [String], prefix: String
+    ) -> [String: Any] {
+        let t5 = catalog.fluxT5 ?? ""
+        let clip: [String: Any] = t5.hasSuffix(".gguf")
+            ? ["class_type": "DualCLIPLoaderGGUF", "inputs": ["clip_name1": catalog.fluxClip ?? "", "clip_name2": t5, "type": "flux"]]
+            : ["class_type": "DualCLIPLoader", "inputs": ["clip_name1": catalog.fluxClip ?? "", "clip_name2": t5, "type": "flux"]]
+        var g: [String: Any] = [
+            "1": unet(r),
+            "2": clip,
+            "3": ["class_type": "VAELoader", "inputs": ["vae_name": catalog.fluxVAE ?? ""]],
+            "5": ["class_type": "CLIPTextEncode", "inputs": ["clip": ["2", 0], "text": positive] as [String: Any]],
+            "8": ["class_type": "EmptySD3LatentImage", "inputs": ["width": w, "height": h, "batch_size": 1]],
+            "9": sampler(plan, model: "1", seed: seed),
+            "10": ["class_type": "VAEDecode", "inputs": ["samples": ["9", 0], "vae": ["3", 0]]],
+            "11": ["class_type": "SaveImage", "inputs": ["images": ["10", 0], "filename_prefix": prefix] as [String: Any]],
+        ]
+        var conditioning: [Any] = ["5", 0]
+        if r.family == .fluxKontext && r.mode == .edit {
+            for (n, name) in references.prefix(r.family.maxReferences(.edit)).enumerated() {
+                g["2\(n)0"] = ["class_type": "LoadImage", "inputs": ["image": name]]
+                g["2\(n)1"] = ["class_type": "FluxKontextImageScale", "inputs": ["image": ["2\(n)0", 0]]]
+                g["2\(n)2"] = ["class_type": "VAEEncode", "inputs": ["pixels": ["2\(n)1", 0], "vae": ["3", 0]] as [String: Any]]
+                g["2\(n)3"] = ["class_type": "ReferenceLatent", "inputs": [
+                    "conditioning": conditioning, "latent": ["2\(n)2", 0]] as [String: Any]]
+                conditioning = ["2\(n)3", 0]
+            }
+            if references.count == 1 { g["8"] = nil; replaceLatent(&g, with: ["202", 0]) }
+        }
+        // schnell isn't guidance-distilled and ignores the value; dev and Kontext follow it.
+        g["6"] = ["class_type": "FluxGuidance", "inputs": [
+            "conditioning": conditioning, "guidance": plan.guidance ?? 3.5] as [String: Any]]
+        g["7"] = ["class_type": "ConditioningZeroOut", "inputs": ["conditioning": ["5", 0]]]
+        return g
+    }
+
+    private static func replaceLatent(_ g: inout [String: Any], with latent: [Any]) {
+        guard var k = g["9"] as? [String: Any], var inputs = k["inputs"] as? [String: Any] else { return }
+        inputs["latent_image"] = latent
+        k["inputs"] = inputs
+        g["9"] = k
     }
 
     private static func checkpoint(

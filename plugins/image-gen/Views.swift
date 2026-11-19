@@ -1016,7 +1016,7 @@ struct ChatItem: View {
                 .font(.system(size: 11)).foregroundStyle(.tertiary)
         case .failed:
             Label(job.error ?? "Failed", systemImage: "exclamationmark.triangle")
-                .font(.system(size: 11)).foregroundStyle(.orange).lineLimit(2)
+                .font(.system(size: 11)).foregroundStyle(.orange).lineLimit(3)
         case .cancelled:
             Label("Cancelled" + (job.outputs.isEmpty ? "" : " · \(job.outputs.count) kept"), systemImage: "xmark.circle")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
